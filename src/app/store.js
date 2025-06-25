@@ -7,7 +7,7 @@ import { scheduleApi } from '../features/calender/scheduleApiSlice'; // <-- yaha
 
 const preloadedState = {
   auth: {
-    user: null,
+      user: JSON.parse(localStorage.getItem('user')) || null,
     token: localStorage.getItem('authToken') || null,
   },
 };
