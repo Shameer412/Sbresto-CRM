@@ -45,6 +45,7 @@ const Login = () => {
       const result = await loginUser(loginFormData).unwrap();
 
       if (result.success && result.data?.token) {
+        sessionStorage.setItem('authToken', result.data.token)
         dispatch(setToken(result.data.token));
         dispatch(setUser(result.data.user));
 
