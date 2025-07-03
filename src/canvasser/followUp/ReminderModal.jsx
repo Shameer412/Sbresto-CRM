@@ -1,228 +1,328 @@
 import React, { useState, useEffect } from 'react';
-import './Reminder.css';
-import { useCreateFollowUpMutation } from '../../features/leads/leadsApiSlice';
+import { useGetLeadUsersQuery, useCreateFollowUpMutation } from '../../features/leads/leadsApiSlice';
+import { useGetAvailableLeadSlotsQuery } from '../../features/calender/scheduleApiSlice';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { 
+  FiCalendar, 
+  FiClock, 
+  FiUser, 
+  FiEdit2, 
+  FiX, 
+  FiCheck, 
+  FiRefreshCw,
+  FiInfo
+} from 'react-icons/fi';
 
 const ReminderModal = ({ leadId, onClose, onSuccess }) => {
-  const [note, setNote] = useState('');
-  const [followUpDate, setFollowUpDate] = useState('');
-  const [status, setStatus] = useState('pending');
-  const [minDate, setMinDate] = useState('');
+  const [formData, setFormData] = useState({
+    note: '',
+    followUpDate: '',
+    status: 'pending',
+    saleMan: '',
+    slotId: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
-  const [createFollowUp, { isLoading }] = useCreateFollowUpMutation();
+  // Users from leads slice
+  const { data: usersData, isLoading: loadingUsers } = useGetLeadUsersQuery();
+  const salesUsers = usersData?.data?.data || [];
 
+  // Slots from calendar slice
+  const { data: slotsData, isLoading: loadingSlots, isFetching: fetchingSlots } = 
+    useGetAvailableLeadSlotsQuery(
+      formData.saleMan && formData.followUpDate ? 
+        { leadId: formData.saleMan, date: formData.followUpDate } : 
+        skipToken
+    );
+  const slots = slotsData?.available_slots || [];
+
+  // Create follow-up from leads slice
+  const [createFollowUp] = useCreateFollowUpMutation();
+
+  // Calculate min date (tomorrow)
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 1);
+  const minDateString = minDate.toISOString().split('T')[0];
+
+  // Reset slot when salesman or date changes
   useEffect(() => {
-    // Set minimum date to tomorrow
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setMinDate(tomorrow.toISOString().split('T')[0]);
+    setFormData(prev => ({ ...prev, slotId: '' }));
+  }, [formData.saleMan, formData.followUpDate]);
 
-    if (!leadId) {
-      toast.error('No lead selected for reminder.');
-      onClose?.();
-    }
-  }, [leadId, onClose]);
-
-  const handleSubmit = async () => {
-    if (!note || !followUpDate) {
-      toast.warn('Please fill in all fields.', { position: 'top-right' });
-      return;
-    }
-    if (!leadId) {
-      toast.error('Invalid lead. Cannot create follow-up.', { position: 'top-right' });
-      return;
-    }
-
-    // Validate date is in the future
-    const selectedDate = new Date(followUpDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
     
-    if (selectedDate <= today) {
-      toast.warn('Please select a future date for follow-up.', { position: 'top-right' });
-      return;
-    }
-
-    try {
-      await createFollowUp({
-        note,
-        follow_up_date: followUpDate,
-        status,
-        lead_id: leadId
-      }).unwrap();
-      toast.success('Follow-up created successfully.', { position: 'top-right' });
-      onSuccess?.();
-      onClose();
-      setNote('');
-      setFollowUpDate('');
-      setStatus('pending');
-    } catch (error) {
-      toast.error(error?.data?.message || error.toString(), { position: 'top-right' });
+    // Clear error when field is changed
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  const getStatusIcon = (statusValue) => {
-    switch (statusValue) {
-      case 'pending':
-        return (
-          <svg className="rm-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12,6 12,12 16,14"/>
-          </svg>
-        );
-      case 'completed':
-        return (
-          <svg className="rm-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22,4 12,14.01 9,11.01"/>
-          </svg>
-        );
-      case 'rescheduled':
-        return (
-          <svg className="rm-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <polyline points="23,4 23,10 17,10"/>
-            <polyline points="1,20 1,14 7,14"/>
-            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-          </svg>
-        );
-      default:
-        return null;
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.note) errors.note = 'Note is required';
+    if (!formData.followUpDate) errors.followUpDate = 'Date is required';
+    if (!formData.saleMan) errors.saleMan = 'Salesperson is required';
+    if (!formData.slotId) errors.slotId = 'Time slot is required';
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setIsSubmitting(true);
+    try {
+      await createFollowUp({
+        note: formData.note,
+        follow_up_date: formData.followUpDate,
+        status: formData.status,
+        lead_id: leadId,
+        sale_man: formData.saleMan,
+        slot: formData.slotId
+      }).unwrap();
+      
+      toast.success('Follow-up scheduled successfully!');
+      onSuccess?.();
+      onClose?.();
+      resetForm();
+    } catch (error) {
+      toast.error(error?.data?.message || 'Failed to schedule follow-up. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      note: '',
+      followUpDate: '',
+      status: 'pending',
+      saleMan: '',
+      slotId: ''
+    });
+    setFormErrors({});
+  };
+
+  const getStatusColor = () => {
+    switch(formData.status) {
+      case 'pending': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'completed': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'rescheduled': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const formatSlotTime = (slot) => {
+    const start = slot.start_time?.slice(0, 5) || '';
+    const end = slot.end_time?.slice(0, 5) || '';
+    return `${start} - ${end}`;
   };
 
   return (
-    <div className="rm-modal-backdrop">
-      <div className="rm-modal-container">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="relative w-full max-w-md bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          disabled={isSubmitting}
+          className="absolute top-4 right-4 z-10 text-gray-300 hover:text-white transition-colors"
+        >
+          <FiX className="w-5 h-5" />
+        </button>
+
         {/* Header */}
-        <div className="rm-modal-header">
-          <div className="rm-header-accent-bar"></div>
-          <div className="rm-header-content">
-            <div className="rm-header-icon-wrapper">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12,6 12,12 16,14"/>
-              </svg>
-            </div>
-            <div>
-              <h2 className="rm-modal-title">Schedule Follow-Up</h2>
-              <p className="rm-modal-subtitle">
-                Plan your next interaction
-                {leadId && (
-                  <span className="rm-lead-id-badge">
-                    Lead ID: <span className="rm-lead-id-value">{leadId}</span>
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-          <button 
-            className="rm-close-button" 
-            onClick={onClose} 
-            disabled={isLoading}
-            aria-label="Close modal"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-white">
+            Schedule Follow-Up
+          </h3>
+          {leadId && (
+            <p className="text-xs text-gray-400 mt-1">
+              Lead ID: <span className="font-medium text-gray-300">{leadId}</span>
+            </p>
+          )}
         </div>
 
         {/* Form */}
-        <div className="rm-modal-body">
-          {/* Note Field */}
-          <div className="rm-form-group">
-            <label className="rm-input-label">
-              <svg className="rm-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-              Notes
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Salesperson */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
+              <FiUser className="mr-2" /> Salesperson
             </label>
-            <textarea 
-              className="rm-text-input rm-textarea"
-              value={note} 
-              onChange={e => setNote(e.target.value)}
+            <select
+              name="saleMan"
+              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+                formErrors.saleMan 
+                  ? 'bg-gray-700 border-red-500 text-white' 
+                  : 'bg-gray-700 border-gray-600 text-white'
+              }`}
+              value={formData.saleMan}
+              onChange={handleChange}
+              disabled={loadingUsers || isSubmitting}
+            >
+              <option value="" className="bg-gray-800">Select Salesperson</option>
+              {salesUsers.map((user) => (
+                <option key={user.id} value={user.id} className="bg-gray-800">
+                  {user.name}
+                </option>
+              ))}
+            </select>
+            {formErrors.saleMan && (
+              <p className="mt-1 text-xs text-red-400 flex items-center">
+                <FiInfo className="mr-1" /> {formErrors.saleMan}
+              </p>
+            )}
+          </div>
+
+          {/* Date Picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
+              <FiCalendar className="mr-2" /> Follow-Up Date
+            </label>
+            <input
+              type="date"
+              name="followUpDate"
+              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+                formErrors.followUpDate 
+                  ? 'bg-gray-700 border-red-500 text-white' 
+                  : 'bg-gray-700 border-gray-600 text-white'
+              }`}
+              value={formData.followUpDate}
+              min={minDateString}
+              onChange={handleChange}
+              disabled={isSubmitting}
+            />
+            {formErrors.followUpDate && (
+              <p className="mt-1 text-xs text-red-400 flex items-center">
+                <FiInfo className="mr-1" /> {formErrors.followUpDate}
+              </p>
+            )}
+          </div>
+
+          {/* Time Slot */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
+              <FiClock className="mr-2" /> Time Slot
+            </label>
+            
+            {fetchingSlots && (
+              <div className="flex items-center justify-center p-3 text-sm text-gray-400 bg-gray-700 rounded-lg border border-gray-600">
+                <FiRefreshCw className="animate-spin mr-2" /> Loading available slots...
+              </div>
+            )}
+            
+            {!fetchingSlots && formData.saleMan && formData.followUpDate && slots.length === 0 && (
+              <div className="p-3 text-sm text-gray-400 bg-gray-700 rounded-lg border border-gray-600">
+                No available slots for selected date
+              </div>
+            )}
+            
+            {!fetchingSlots && slots.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {slots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    className={`p-2 text-sm rounded-lg border transition-all ${
+                      formData.slotId === slot.id
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-300'
+                    }`}
+                    onClick={() => handleChange({ target: { name: 'slotId', value: slot.id }})}
+                    disabled={isSubmitting}
+                  >
+                    {formatSlotTime(slot)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {formErrors.slotId && (
+              <p className="mt-1 text-xs text-red-400 flex items-center">
+                <FiInfo className="mr-1" /> {formErrors.slotId}
+              </p>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
+              <FiEdit2 className="mr-2" /> Notes
+            </label>
+            <textarea
+              name="note"
+              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+                formErrors.note 
+                  ? 'bg-gray-700 border-red-500 text-white' 
+                  : 'bg-gray-700 border-gray-600 text-white'
+              }`}
+              rows={3}
+              value={formData.note}
+              onChange={handleChange}
               placeholder="Enter follow-up details..."
-              rows="4"
-              disabled={isLoading}
+              disabled={isSubmitting}
             />
+            {formErrors.note && (
+              <p className="mt-1 text-xs text-red-400 flex items-center">
+                <FiInfo className="mr-1" /> {formErrors.note}
+              </p>
+            )}
           </div>
 
-          {/* Follow-Up Date Field */}
-          <div className="rm-form-group">
-            <label className="rm-input-label">
-              <svg className="rm-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              Follow-Up Date
-            </label>
-            <input 
-              type="date" 
-              className="rm-text-input"
-              value={followUpDate} 
-              min={minDate}
-              onChange={e => setFollowUpDate(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Status Field */}
-          <div className="rm-form-group">
-            <label className="rm-input-label">
-              <svg className="rm-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
-              </svg>
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               Status
             </label>
-            <div className="rm-select-wrapper">
-              <select 
-                className={`rm-select-input rm-status-${status}`}
-                value={status} 
-                onChange={e => setStatus(e.target.value)}
-                disabled={isLoading}
-              >
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="rescheduled">Rescheduled</option>
-              </select>
-              <div className="rm-select-icon">
-                {getStatusIcon(status)}
-              </div>
-            </div>
+            <select
+              name="status"
+              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+                getStatusColor()
+              }`}
+              value={formData.status}
+              onChange={handleChange}
+              disabled={isSubmitting}
+            >
+              <option value="pending" className="bg-amber-100 text-amber-800">Pending</option>
+              <option value="completed" className="bg-emerald-100 text-emerald-800">Completed</option>
+              <option value="rescheduled" className="bg-blue-100 text-blue-800">Rescheduled</option>
+            </select>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="rm-modal-footer">
-          <button 
-            className="rm-button rm-secondary-button" 
-            onClick={onClose} 
-            disabled={isLoading}
-          >
-            Cancel
-          </button>
-          <button 
-            className="rm-button rm-primary-button" 
-            onClick={handleSubmit} 
-            disabled={isLoading || !leadId}
-          >
-            {isLoading && (
-              <svg className="rm-button-spinner" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="31.416" strokeDashoffset="31.416">
-                  <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
-                  <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
-                </circle>
-              </svg>
-            )}
-            {isLoading ? 'Saving...' : 'Schedule Follow-Up'}
-          </button>
-        </div>
+          {/* Footer */}
+          <div className="flex justify-end pt-4 space-x-3">
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-all"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 transition-all flex items-center justify-center min-w-[100px]"
+              disabled={isSubmitting || !leadId}
+            >
+              {isSubmitting ? (
+                <>
+                  <FiRefreshCw className="animate-spin mr-2" /> Saving...
+                </>
+              ) : (
+                <>
+                  <FiCheck className="mr-2" /> Schedule
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

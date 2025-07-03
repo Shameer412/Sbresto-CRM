@@ -15,15 +15,23 @@ import LeadForm from './canvasser/lead/LeadForm';
 import Lead from './canvasser/lead/Leads';
 import FollowUpList from './canvasser/followUp/FollowUpList';
 import Report from './canvasser/report/Report';
-import Calender from './saleperson/Calender.jsx';
+import Schedule from './saleperson/dashboard/Layout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
-
+import Calender from './canvasser/calender/Calender.jsx'
 const AppRoutes = () => {
 
 
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+       <Route
+    path="/schedule"
+    element={
+      <ProtectedRoute>
+        <Schedule />
+      </ProtectedRoute>
+    }
+  />
       <Route
         path="/"
         element={
@@ -41,6 +49,7 @@ const AppRoutes = () => {
         <Route path="analytics" element={<Analytic />} />
         <Route path="followup" element={<FollowUpList />} />
         <Route path="reports" element={<Report />} />
+          <Route path="calender" element={<Calender />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>

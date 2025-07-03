@@ -5,25 +5,26 @@ import {
   useDeleteFollowUpMutation,
 } from "../../features/leads/leadsApiSlice";
 import {
-  Edit, Trash2, Calendar, CheckCircle, XCircle, NotebookText, User,
+  Edit, Trash2, Calendar, CheckCircle, NotebookText,
   ChevronLeft, ChevronRight, Loader2, Plus, ChevronDown, ChevronUp,
-  Filter, RefreshCw, Clock, AlertCircle, Check, Circle
+  RefreshCw, Clock, AlertCircle, Check, Circle
 } from "lucide-react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useGetUserLeadsQuery } from '../../features/api/apiSlice';
 
 const FollowUpList = () => {
-  // Data fetching
-  const { data: leadsData } = useGetUserLeadsQuery();
+  // User info fetch
+  const { data: leadsData, isLoading: isUserLoading } = useGetUserLeadsQuery();
   const userId = leadsData?.id;
 
-  // State management
+  // State
   const [page, setPage] = useState(1);
   const [expandedCard, setExpandedCard] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // For new follow-up (if you use add functionality)
   const [newFollowUp, setNewFollowUp] = useState({
     lead_id: "",
     status: "pending",
@@ -31,12 +32,17 @@ const FollowUpList = () => {
     follow_up_date: "",
   });
 
-  // RTK Query
-  const { 
-    data: apiResponse = {}, 
-    isLoading, 
+  // Reset page to 1 if filter or userId changes
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, userId]);
+
+  // Main query: Only run if userId is loaded
+  const {
+    data: apiResponse = {},
+    isLoading,
     isFetching,
-    refetch 
+    refetch
   } = useGetFollowUpsQuery(
     { userId, page, status: statusFilter !== "all" ? statusFilter : undefined },
     { skip: !userId }
@@ -46,7 +52,7 @@ const FollowUpList = () => {
   const [updateFollowUp, { isLoading: updating }] = useUpdateFollowUpMutation();
   const [deleteFollowUp, { isLoading: deleting }] = useDeleteFollowUpMutation();
 
-  // Edit state
+  // Edit states
   const [editId, setEditId] = useState(null);
   const [editFields, setEditFields] = useState({
     status: "pending",
@@ -54,20 +60,20 @@ const FollowUpList = () => {
     follow_up_date: "",
   });
 
-  // Data processing
+  // Data extract
   const followUps = apiResponse?.data?.data ?? [];
   const currentPage = apiResponse?.data?.current_page ?? 1;
   const lastPage = apiResponse?.data?.last_page ?? 1;
   const total = apiResponse?.data?.total ?? 0;
 
-  // Calculate status counts
+  // Status counts for cards
   const statusCounts = followUps.reduce((acc, fu) => {
     acc.all = (acc.all || 0) + 1;
     acc[fu.status] = (acc[fu.status] || 0) + 1;
     return acc;
-  }, {all: 0});
+  }, { all: 0 });
 
-  // Helper functions
+  // Helpers
   const startEdit = (fu) => {
     setEditId(fu.id);
     setEditFields({
@@ -116,15 +122,15 @@ const FollowUpList = () => {
   const getStatusColor = (status) => {
     const base = "px-2 py-1 text-xs rounded-full flex items-center";
     switch (status?.toLowerCase()) {
-      case "completed": 
+      case "completed":
         return `${base} bg-green-900/20 text-green-400 border border-green-800`;
-      case "pending": 
+      case "pending":
         return `${base} bg-yellow-900/20 text-yellow-400 border border-yellow-800`;
-      case "rescheduled": 
+      case "rescheduled":
         return `${base} bg-blue-900/20 text-blue-400 border border-blue-800`;
-      case "missed": 
+      case "missed":
         return `${base} bg-red-900/20 text-red-400 border border-red-800`;
-      default: 
+      default:
         return `${base} bg-gray-800/20 text-gray-300 border border-gray-700`;
     }
   };
@@ -134,9 +140,9 @@ const FollowUpList = () => {
     switch (status?.toLowerCase()) {
       case "completed": return <CheckCircle className={className} />;
       case "pending": return <Clock className={`${className} animate-pulse`} />;
-      case "rescheduled": return <RefreshCw className={`${className}`} />;
+      case "rescheduled": return <RefreshCw className={className} />;
       case "missed": return <AlertCircle className={className} />;
-      default: return <Circle className={`${className}`} />;
+      default: return <Circle className={className} />;
     }
   };
 
@@ -146,13 +152,29 @@ const FollowUpList = () => {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  // Pagination handlers
-  const handlePrev = () => setPage(prev => Math.max(1, prev - 1));
-  const handleNext = () => setPage(prev => Math.min(lastPage, prev + 1));
+  // Pagination handlers: Only act if ready
+  const handlePrev = () => {
+    if (currentPage > 1 && !isLoading && userId) setPage(prev => prev - 1);
+  };
+  const handleNext = () => {
+    if (currentPage < lastPage && !isLoading && userId) setPage(prev => prev + 1);
+  };
+  const handlePageClick = (pageNum) => {
+    if (!isLoading && userId) setPage(pageNum);
+  };
 
   const toggleExpand = (id) => {
     setExpandedCard(expandedCard === id ? null : id);
   };
+
+  // UI block until user loaded
+  if (isUserLoading || !userId) {
+    return (
+      <div className="flex justify-center items-center min-h-[40vh] text-gray-400 text-lg">
+        Loading user info...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
@@ -167,7 +189,6 @@ const FollowUpList = () => {
               Track and manage your customer follow-ups
             </p>
           </div>
-          
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               onClick={() => refetch()}
@@ -202,7 +223,6 @@ const FollowUpList = () => {
               </button>
             </div>
           </div>
-
           {/* Pending */}
           <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-yellow-500 group">
             <div className="flex justify-between items-start">
@@ -226,7 +246,6 @@ const FollowUpList = () => {
               </button>
             </div>
           </div>
-
           {/* Completed */}
           <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-green-500 group">
             <div className="flex justify-between items-start">
@@ -237,7 +256,7 @@ const FollowUpList = () => {
                 </h3>
               </div>
               <div className="p-2 rounded-lg bg-gray-700/50 group-hover:bg-green-500/20 transition-colors">
-                <CheckCircle className="w-5 h-5 text-green-400/80 group-hover:text-green-400" />
+                <CheckCircle className="w-5 h-5 text-green-400 group-hover:text-green-400" />
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
@@ -250,7 +269,6 @@ const FollowUpList = () => {
               </button>
             </div>
           </div>
-
           {/* Rescheduled */}
           <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-blue-500 group">
             <div className="flex justify-between items-start">
@@ -261,7 +279,7 @@ const FollowUpList = () => {
                 </h3>
               </div>
               <div className="p-2 rounded-lg bg-gray-700/50 group-hover:bg-blue-500/20 transition-colors">
-                <RefreshCw className="w-5 h-5 text-blue-400/80 group-hover:text-blue-400" />
+                <RefreshCw className="w-5 h-5 text-blue-400 group-hover:text-blue-400" />
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
@@ -276,8 +294,6 @@ const FollowUpList = () => {
           </div>
         </div>
 
-       
-
         {/* PAGINATION Top */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
           <div className="text-sm text-gray-400">
@@ -287,7 +303,7 @@ const FollowUpList = () => {
             <button
               className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === 1 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
               onClick={handlePrev}
-              disabled={currentPage === 1 || isLoading}
+              disabled={currentPage === 1 || isLoading || !userId}
             >
               <ChevronLeft className="w-4 h-4 mr-1" /> Prev
             </button>
@@ -303,33 +319,34 @@ const FollowUpList = () => {
                 } else {
                   pageNum = currentPage - 2 + i;
                 }
-                
                 return (
                   <button
                     key={pageNum}
-                    onClick={() => setPage(pageNum)}
+                    onClick={() => handlePageClick(pageNum)}
                     className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === pageNum ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                    disabled={isLoading || !userId}
                   >
                     {pageNum}
                   </button>
                 );
               })}
               {lastPage > 5 && currentPage < lastPage - 2 && (
-                <span className="px-2 text-gray-500">...</span>
-              )}
-              {lastPage > 5 && currentPage < lastPage - 2 && (
-                <button
-                  onClick={() => setPage(lastPage)}
-                  className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
-                >
-                  {lastPage}
-                </button>
+                <>
+                  <span className="px-2 text-gray-500">...</span>
+                  <button
+                    onClick={() => handlePageClick(lastPage)}
+                    className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                    disabled={isLoading || !userId}
+                  >
+                    {lastPage}
+                  </button>
+                </>
               )}
             </div>
             <button
               className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === lastPage ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
               onClick={handleNext}
-              disabled={currentPage === lastPage || isLoading}
+              disabled={currentPage === lastPage || isLoading || !userId}
             >
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </button>
@@ -344,8 +361,8 @@ const FollowUpList = () => {
         ) : followUps.length > 0 ? (
           <div className="space-y-3">
             {followUps.map(fu => (
-              <div 
-                key={fu.id} 
+              <div
+                key={fu.id}
                 className={`bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-700 transition-all duration-200 hover:shadow-md ${expandedCard === fu.id ? 'ring-2 ring-indigo-500/50' : ''}`}
               >
                 {editId === fu.id ? (
@@ -357,7 +374,7 @@ const FollowUpList = () => {
                         <select
                           className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white transition-colors"
                           value={editFields.status}
-                          onChange={(e) => setEditFields({...editFields, status: e.target.value})}
+                          onChange={(e) => setEditFields({ ...editFields, status: e.target.value })}
                           disabled={updating}
                         >
                           <option value="pending">Pending</option>
@@ -372,7 +389,7 @@ const FollowUpList = () => {
                           type="date"
                           className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white transition-colors"
                           value={editFields.follow_up_date}
-                          onChange={(e) => setEditFields({...editFields, follow_up_date: e.target.value})}
+                          onChange={(e) => setEditFields({ ...editFields, follow_up_date: e.target.value })}
                           disabled={updating}
                         />
                       </div>
@@ -383,7 +400,7 @@ const FollowUpList = () => {
                         className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white transition-colors"
                         rows="3"
                         value={editFields.note}
-                        onChange={(e) => setEditFields({...editFields, note: e.target.value})}
+                        onChange={(e) => setEditFields({ ...editFields, note: e.target.value })}
                         placeholder="Enter notes about this follow-up"
                         disabled={updating}
                       />
@@ -412,7 +429,7 @@ const FollowUpList = () => {
                   </div>
                 ) : (
                   <>
-                    <div 
+                    <div
                       className="p-4 cursor-pointer flex justify-between items-center hover:bg-gray-700/50 transition-colors"
                       onClick={() => toggleExpand(fu.id)}
                     >
@@ -442,7 +459,6 @@ const FollowUpList = () => {
                         )}
                       </div>
                     </div>
-                    
                     {expandedCard === fu.id && (
                       <div className="px-4 pb-4 border-t border-gray-700">
                         <div className="mt-4">
@@ -487,7 +503,7 @@ const FollowUpList = () => {
             <NotebookText className="mx-auto h-12 w-12 text-gray-500" />
             <h3 className="mt-2 text-lg font-medium text-white">No follow-ups found</h3>
             <p className="mt-1 text-sm text-gray-400">
-              {statusFilter !== "all" 
+              {statusFilter !== "all"
                 ? "No follow-ups match your filter criteria"
                 : "You don't have any follow-ups yet"}
             </p>
@@ -511,7 +527,7 @@ const FollowUpList = () => {
               <button
                 className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === 1 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
                 onClick={handlePrev}
-                disabled={currentPage === 1 || isLoading}
+                disabled={currentPage === 1 || isLoading || !userId}
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Prev
               </button>
@@ -527,33 +543,34 @@ const FollowUpList = () => {
                   } else {
                     pageNum = currentPage - 2 + i;
                   }
-                  
                   return (
                     <button
                       key={pageNum}
-                      onClick={() => setPage(pageNum)}
+                      onClick={() => handlePageClick(pageNum)}
                       className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === pageNum ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                      disabled={isLoading || !userId}
                     >
                       {pageNum}
                     </button>
                   );
                 })}
                 {lastPage > 5 && currentPage < lastPage - 2 && (
-                  <span className="px-2 text-gray-500">...</span>
-                )}
-                {lastPage > 5 && currentPage < lastPage - 2 && (
-                  <button
-                    onClick={() => setPage(lastPage)}
-                    className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
-                  >
-                    {lastPage}
-                  </button>
+                  <>
+                    <span className="px-2 text-gray-500">...</span>
+                    <button
+                      onClick={() => handlePageClick(lastPage)}
+                      className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                      disabled={isLoading || !userId}
+                    >
+                      {lastPage}
+                    </button>
+                  </>
                 )}
               </div>
               <button
                 className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === lastPage ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
                 onClick={handleNext}
-                disabled={currentPage === lastPage || isLoading}
+                disabled={currentPage === lastPage || isLoading || !userId}
               >
                 Next <ChevronRight className="w-4 h-4 ml-1" />
               </button>

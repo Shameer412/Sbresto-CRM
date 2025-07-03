@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FiHome, FiLogOut, FiChevronDown, FiChevronRight
-} from 'react-icons/fi';
+  FiHome, FiLogOut, FiChevronDown, FiChevronRight, FiCalendar
+} from 'react-icons/fi'; // Added FiCalendar
 import { FaUserCircle, FaChartLine, FaRegClock, FaUserPlus } from 'react-icons/fa';
 import { HiOutlineUserGroup, HiOutlineDocumentReport } from 'react-icons/hi';
 import { useDispatch } from 'react-redux';
@@ -86,7 +86,7 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                 <ul className="db-submenu">
                   <li>
                     <NavLink
-                      to="/leads"  // Changed from "leads/add" to "/leads"
+                      to="/leads"
                       className={({ isActive }) => isActive ? 'db-active' : ''}
                       onClick={handleNavClick}
                     >
@@ -96,7 +96,7 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                   </li>
                   <li>
                     <NavLink
-                      to="/leads/add"  // Changed from "leads/add" to "/leads/add"
+                      to="/leads/add"
                       className={({ isActive }) => isActive ? 'db-active' : ''}
                       onClick={handleNavClick}
                     >
@@ -107,6 +107,20 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                 </ul>
               )}
             </li>
+
+            {/* ===== NEW CALENDAR TAB ===== */}
+            <li>
+              <NavLink
+                to="/calender"
+                className={({ isActive }) => isActive ? 'db-active' : ''}
+                onClick={handleNavClick}
+              >
+                <FiCalendar className="db-nav-icon" />
+                <span className="db-nav-text">Calendar</span>
+              </NavLink>
+            </li>
+            {/* ============================ */}
+
             <li>
               <NavLink
                 to="/reports"

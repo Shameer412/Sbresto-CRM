@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
 import { apiSlice } from '../features/api/apiSlice';
 import { leadsApiSlice } from '../features/leads/leadsApiSlice';
-import { scheduleApi } from '../features/calender/scheduleApiSlice'; // <-- yahan import karein
+import { scheduleApi } from '../features/calender/scheduleApiSlice'; 
 
 
 const preloadedState = {

@@ -59,11 +59,11 @@ const Login = () => {
 
         setTimeout(() => {
           if (role === 'admin') {
-            navigate('/canvasser-1');
+            navigate('/');
           } else if (role === 'canvasser') {
             navigate('/');
           } else if (role === 'salesperson') {
-            navigate('/sales-dashboard');
+            navigate('/schedule');
           } else {
             toast.error('Unknown role! Contact admin.', {
               className: 'toast-error-role',
