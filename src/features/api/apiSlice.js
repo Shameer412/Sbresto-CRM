@@ -93,7 +93,20 @@ export const apiSlice = createApi({
       providesTags: ['LeadsStats'],
       
     }),
+    // ========== SALESPEOPLE ==========
+getSalespeople: builder.query({
+  query: () => ({
+    url: '/leads/fetch/users',
+    method: 'GET',
+    params: { userType: 'salesperson' },
   }),
+  providesTags: ['Salespeople'],
+ 
+ 
+}),
+
+  }),
+  
 });
 
 // Export all the hooks you need
@@ -105,4 +118,5 @@ export const {
   useMarkNotificationAsReadMutation,
   useMarkAllNotificationsAsReadMutation,
   useGetUserLeadsStatsQuery,
+  useGetSalespeopleQuery,
 } = apiSlice;

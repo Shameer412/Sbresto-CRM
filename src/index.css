@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Blue-themed scrollbar */
+.scrollbar-blue::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-blue::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.4); /* slate-800 with opacity */
+  border-radius: 4px;
+}
+
+.scrollbar-blue::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.6); /* blue-500 with opacity */
+  border-radius: 4px;
+}
+
+.scrollbar-blue::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.8); /* more opaque on hover */
+}
+
+/* For Firefox */
+.scrollbar-blue {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.6) rgba(30, 41, 59, 0.4);
+}

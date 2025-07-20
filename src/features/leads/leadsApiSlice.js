@@ -70,14 +70,14 @@ export const leadsApiSlice = createApi({
       providesTags: ['Leads'],
       
     }),
-    getLeadUsers: builder.query({
-      query: () => ({
-        url: '/leads/fetch/users',
-        method: 'GET',
-      }),
-      providesTags: ['Leads'],
-      
-    }),
+  getLeadUsers: builder.query({
+  query: (page = 1) => ({
+    url: `/leads/fetch/users?page=${page}`,
+    method: 'GET',
+  }),
+  providesTags: ['Leads'],
+}),
+
 
     // LEAD NOTES
     saveLeadNote: builder.mutation({
@@ -154,6 +154,14 @@ export const leadsApiSlice = createApi({
       }),
       transformResponse: (response) => response.download_link,
     }),
+    // INVITE - Send Invitation Email
+sendInvite: builder.mutation({
+  query: ({ email }) => ({
+    url: '/invite/send',
+    method: 'POST',
+    body: { email },
+  }),
+}),
 
   }),
 });
@@ -171,6 +179,7 @@ export const {
   useGetLeadStatusesQuery,
   useGetLeadSourcesQuery,
   useGetLeadUsersQuery,
+  useSendInviteMutation,
 
   // Notes
   useSaveLeadNoteMutation,
