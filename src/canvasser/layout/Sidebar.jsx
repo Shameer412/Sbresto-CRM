@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  FiHome, FiLogOut, FiChevronDown, FiChevronRight, FiCalendar
-} from 'react-icons/fi'; // Added FiCalendar
+  FiHome, FiLogOut, FiChevronDown, FiChevronRight, FiCalendar, FiMap, FiMapPin
+} from 'react-icons/fi';
 import { FaUserCircle, FaChartLine, FaRegClock, FaUserPlus } from 'react-icons/fa';
 import { HiOutlineUserGroup, HiOutlineDocumentReport } from 'react-icons/hi';
 import { useDispatch } from 'react-redux';
@@ -14,13 +14,13 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
   const { data: userData, isLoading: userLoading } = useGetUserLeadsQuery();
   const username = userData?.name || userData?.username || 'User';
   const [leadsOpen, setLeadsOpen] = useState(false);
+  const [territoryOpen, setTerritoryOpen] = useState(false);
   const location = useLocation();
 
-  // Open Leads menu if we're on a leads route
+  // Open dropdowns based on current path
   useEffect(() => {
-    if (location.pathname.includes('/leads')) {
-      setLeadsOpen(true);
-    }
+    if (location.pathname.includes('/leads')) setLeadsOpen(true);
+    if (location.pathname.includes('/territory')) setTerritoryOpen(true);
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -108,7 +108,48 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
               )}
             </li>
 
-            {/* ===== NEW CALENDAR TAB ===== */}
+            {/* Territory Dropdown */}
+            <li>
+              <button
+                className={`db-dropdown-btn ${location.pathname.includes('/territory') ? 'db-active' : ''}`}
+                onClick={() => setTerritoryOpen(prev => !prev)}
+                aria-expanded={territoryOpen}
+                type="button"
+              >
+                <FiMap className="db-nav-icon" />
+                <span className="db-nav-text">Territory</span>
+                {territoryOpen ? (
+                  <FiChevronDown className="db-dropdown-arrow" />
+                ) : (
+                  <FiChevronRight className="db-dropdown-arrow" />
+                )}
+              </button>
+              {territoryOpen && (
+                <ul className="db-submenu">
+                  <li>
+                    <NavLink
+                      to="/createterritory"
+                      className={({ isActive }) => isActive ? 'db-active' : ''}
+                      onClick={handleNavClick}
+                    >
+                      <FiMapPin size={18} />
+                      <span className="db-nav-text1">Create Territory</span>
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/territory/list"
+                      className={({ isActive }) => isActive ? 'db-active' : ''}
+                      onClick={handleNavClick}
+                    >
+                      <FiMap size={18} />
+                      <span className="db-nav-text1">Territory List</span>
+                    </NavLink>
+                  </li>
+                </ul>
+              )}
+            </li>
+
             <li>
               <NavLink
                 to="/calender"
@@ -119,8 +160,6 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                 <span className="db-nav-text">Calendar</span>
               </NavLink>
             </li>
-            {/* ============================ */}
-
             <li>
               <NavLink
                 to="/reports"

@@ -18,6 +18,8 @@ import Report from './canvasser/report/Report';
 import Schedule from './saleperson/dashboard/Layout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Calender from './canvasser/calender/Calender.jsx'
+import CreateTerritory from './canvasser/territory/CreateTerritory';
+import TerritoryDetail from './canvasser/territory/DetailedTerritory.jsx';
 const AppRoutes = () => {
 
 
@@ -50,6 +52,8 @@ const AppRoutes = () => {
         <Route path="followup" element={<FollowUpList />} />
         <Route path="reports" element={<Report />} />
           <Route path="calender" element={<Calender />} />
+          <Route path="/createterritory" element={<CreateTerritory />} />
+           <Route path="/createterritory/:id" element={<TerritoryDetail />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
