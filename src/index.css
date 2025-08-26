@@ -27,3 +27,31 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(59, 130, 246, 0.6) rgba(30, 41, 59, 0.4);
 }
+/* Google Maps InfoWindow — dark theme */
+.gm-style .gm-style-iw-c {
+  background: #111827 !important;        /* dark slate */
+  color: #e5e7eb !important;              /* text-gray-200 */
+  border-radius: 12px !important;
+  box-shadow: 0 10px 15px rgba(0,0,0,.4) !important;
+  padding: 8px 10px !important;           /* tighter padding */
+}
+
+.gm-style .gm-style-iw-d {
+  color: #e5e7eb !important;
+  overflow: auto !important;              /* allow scroll if content tall */
+}
+
+/* The little tip/arrow under the bubble */
+.gm-style .gm-style-iw-t::after {
+  background: #111827 !important;
+}
+
+/* Close (X) button color — invert to show on dark */
+.gm-style .gm-style-iw-c button[aria-label="Close"] {
+  filter: invert(1) grayscale(1);
+}
+
+/* Optional thin border to match your map chrome */
+.gm-style .gm-style-iw-c {
+  border: 1px solid #374151 !important;   /* gray-700 */
+}

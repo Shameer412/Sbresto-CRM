@@ -6,6 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import Login from './components/login/Login';
+import SignUp from "./components/SignUp.jsx"
 import Layout from './canvasser/layout/Layout';
 import Profile from './canvasser/profile/Profile';
 import LeadDetails from './canvasser/lead/LeadDetails';
@@ -19,13 +20,15 @@ import Schedule from './saleperson/dashboard/Layout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Calender from './canvasser/calender/Calender.jsx'
 import CreateTerritory from './canvasser/territory/CreateTerritory';
-import TerritoryDetail from './canvasser/territory/DetailedTerritory.jsx';
+import TerritoryList from './canvasser/territory/TerritoryList.jsx';
 const AppRoutes = () => {
 
 
   return (
     <Routes>
+     <Route path="/register/:token" element={<SignUp />} />
       <Route path="/login" element={<Login />} />
+     
        <Route
     path="/schedule"
     element={
@@ -53,7 +56,7 @@ const AppRoutes = () => {
         <Route path="reports" element={<Report />} />
           <Route path="calender" element={<Calender />} />
           <Route path="/createterritory" element={<CreateTerritory />} />
-           <Route path="/createterritory/:id" element={<TerritoryDetail />} />
+           <Route path="/territories" element={<TerritoryList />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>

@@ -11,7 +11,8 @@ const Sidebar = ({
   const navItems = [
     { id: 'schedule', icon: '📅', label: 'Schedule' },
     { id: 'meetings', icon: '🤝', label: 'Meetings' },
-    { id: 'leads', icon: '📋', label: 'Leads' }
+    { id: 'leads', icon: '📋', label: 'Leads' },
+    { id: 'territory', icon: '📋', label: 'Territory' }
   ];
 
   const handleTabChange = (id) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import Schedule from '../Schedule';
-
+import Territory from '../territory/TerritoryList';
 
 const DashboardContent = ({ activeTab }) => {
   const renderContent = () => {
@@ -8,6 +8,7 @@ const DashboardContent = ({ activeTab }) => {
       case 'schedule': return <Schedule />;
       case 'meetings': return <Schedule />;
       case 'leads': return <Schedule />;
+      case 'territory': return <Territory />;
       default: return <Schedule />;
     }
   };

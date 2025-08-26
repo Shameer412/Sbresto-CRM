@@ -138,7 +138,7 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                   </li>
                   <li>
                     <NavLink
-                      to="/territory/list"
+                      to="/territories"
                       className={({ isActive }) => isActive ? 'db-active' : ''}
                       onClick={handleNavClick}
                     >

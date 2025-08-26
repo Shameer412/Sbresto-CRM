@@ -162,6 +162,32 @@ sendInvite: builder.mutation({
     body: { email },
   }),
 }),
+// INVITE: Verify token (path param version)
+verifyInvite: builder.query({
+  // expects a raw token string
+  query: (token) => ({
+    url: `/invite/verify/${encodeURIComponent(token)}`,
+    method: 'GET',
+  }),
+  // optional: normalize response to a consistent shape
+  transformResponse: (res) => {
+    // success may be: { email: "...", verified: true }
+    // failure may be: { message: "Invalid or expired invitation", verified: false }
+    return {
+      email: res?.email ?? null,
+      verified: Boolean(res?.verified),
+      message: res?.message ?? null,
+    };
+  },
+}),
+// INVITE: Register new account from invite token
+registerFromInvite: builder.mutation({
+  query: ({ token, email, name, password, password_confirmation }) => ({
+    url: `/invite/register/${encodeURIComponent(token)}`,
+    method: 'POST',
+    body: { email, name, password, password_confirmation },
+  }),
+}),
 
   }),
 });
@@ -180,7 +206,8 @@ export const {
   useGetLeadSourcesQuery,
   useGetLeadUsersQuery,
   useSendInviteMutation,
-
+  useVerifyInviteQuery,
+  useRegisterFromInviteMutation,
   // Notes
   useSaveLeadNoteMutation,
 
