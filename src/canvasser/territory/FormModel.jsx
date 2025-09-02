@@ -1,7 +1,5 @@
-// LeadFormModal.jsx
 import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
-
 import 'react-toastify/dist/ReactToastify.css';
 import {
   FiUser, FiMail, FiPhone, FiHome, FiMapPin, FiAlertTriangle,
@@ -10,7 +8,6 @@ import {
 } from 'react-icons/fi';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-;
 
 // Leads API
 import {
@@ -20,7 +17,7 @@ import {
   useCreateLeadMutation,
 } from '../../features/leads/leadsApiSlice';
 
-// Calendar API (ScheduleMeeting.jsx compatible)
+// Calendar API
 import { skipToken } from '@reduxjs/toolkit/query';
 import {
   useGetAvailableLeadSlotsQuery,
@@ -30,6 +27,7 @@ import {
 const damageTypeOptions = ['Roof', 'Siding', 'Windows', 'Flood', 'Other'];
 const priorityLevelOptions = ['Low', 'Medium', 'High', 'Urgent'];
 const insuredOptions = ['Yes', 'No'];
+const retailBidOptions = ['Yes', 'No'];
 
 /** Local date -> YYYY-MM-DD (no UTC shift) */
 const formatLocalYMD = (d) => {
@@ -41,27 +39,25 @@ const formatLocalYMD = (d) => {
 };
 const trimTime = (t) => (t ? t.slice(0, 5) : '');
 
-// --------- NEW: helper to prefill from house ---------
+// Helper to prefill from house
 const nameFromHouse = (h) => {
   const parts = [h?.first_name, h?.last_name].filter(Boolean);
-  // fallback to email/user if no first/last
   if (parts.length) return parts.join(' ');
   return '';
 };
 const zipFromAddress = (addr) => {
-  // naive pickup of last 5 consecutive digits (US ZIP). Safe fallback if none.
   if (!addr) return '';
   const m = addr.match(/(\d{5})(-\d{4})?$/);
   return m ? m[0] : '';
 };
 
-export default function FormModel({
+export default function LeadFormModal({
   open,
   onClose,
   house,          // { id, first_name, last_name, email, phone, address, city, state, ... }
-  teritoryId,     // number (itinerary/territory id) — note spelling kept per your API
+  teritoryId,     // number (itinerary/territory id)
 }) {
-  // -------- options + mutations ----------
+  // Options + mutations
   const { data: statusResp } = useGetLeadStatusesQuery(undefined, { skip: !open });
   const statusOptions = statusResp?.data || [];
 
@@ -74,7 +70,7 @@ export default function FormModel({
   const [createLead, { isLoading: isCreating }] = useCreateLeadMutation();
   const [bookMeeting, { isLoading: bookingMeeting }] = useBookLeadMeetingMutation();
 
-  // -------- core form state ----------
+  // Core form state
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -98,7 +94,7 @@ export default function FormModel({
     retail_bid_request: ''
   });
 
-  // -------- prefill from house on open/house change ----------
+  // Prefill from house on open/house change
   useEffect(() => {
     if (!open) return;
     const initial = {
@@ -132,7 +128,7 @@ export default function FormModel({
     setSelectedSlot(null);
   }, [open, house]);
 
-  // -------- meeting state ----------
+  // Meeting state
   const [showMeetingInputs, setShowMeetingInputs] = useState(false);
   const [meetingDate, setMeetingDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -148,7 +144,7 @@ export default function FormModel({
     );
   const slots = slotData?.available_slots || [];
 
-  // -------- UI state ----------
+  // UI state
   const steps = [
     { id: 'personal', title: 'Personal', icon: <FiUser /> },
     { id: 'property', title: 'Property', icon: <FiHome /> },
@@ -162,7 +158,7 @@ export default function FormModel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // -------- handlers ----------
+  // Handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -203,9 +199,6 @@ export default function FormModel({
       case 'notes':
         if (!value.trim()) error = 'Notes are required';
         break;
-      case 'retail_bid_request':
-        if (value && isNaN(Number(value))) error = 'Bid request must be a number';
-        break;
       case 'age_of_roof':
         if (value && !/^\d+(\s*years?)?$/.test(value)) error = 'Enter years as a number';
         break;
@@ -229,14 +222,14 @@ export default function FormModel({
   const resetForm = () => {
     setIsSuccess(false);
     setCurrentStep(0);
-    onClose?.(); // close modal after success if you prefer
+    onClose?.();
   };
 
-  // -------- SUBMIT with extra fields --------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Required validation (excluding assigned_to, follow_up_date, retail_bid_request, priority_level)
     const required = ['full_name', 'email', 'phone', 'notes'];
     const newErrors = {};
     required.forEach(f => {
@@ -256,29 +249,27 @@ export default function FormModel({
       assigned_to: formData.assigned_to ? Number(formData.assigned_to) : undefined,
       status: formData.status ? Number(formData.status) : undefined,
       lead_source: formData.lead_source ? Number(formData.lead_source) : undefined,
-
-      // 🔵 NEW: extra identifiers
       house_id: house?.id ?? undefined,
-      teritory_id: teritoryId ?? undefined, // (spelling per your API example)
+      teritory_id: teritoryId ?? undefined,
     };
     if (!formData.notes?.trim()) delete payload.notes;
 
     try {
-      // 1) Create lead (with house_id + teritory_id)
+      // Create lead
       const leadResp = await createLead(payload).unwrap();
       const createdLeadId =
         leadResp?.data?.id ??
         leadResp?.lead?.id ??
         leadResp?.id;
 
-      // 2) Optional meeting booking
+      // Optional meeting booking
       if (selectedSlot && assignedUserId) {
         const bookingPayload = {
-          leadId: assignedUserId, // salesperson/user id
+          leadId: assignedUserId,
           date: selectedSlot.date,
           start_time: selectedSlot.start_time,
           end_time: selectedSlot.end_time,
-          lead_id: createdLeadId, // link CRM lead
+          lead_id: createdLeadId,
         };
 
         try {
@@ -326,7 +317,6 @@ export default function FormModel({
 
         {/* Modal body (scrollable) */}
         <div className="overflow-y-auto max-h-[calc(92vh-64px)] px-5 pb-5">
-          {/* keep your exact dark form styles */}
           <div className="dark-form-container !bg-transparent !shadow-none !p-0">
             {/* Steps */}
             <div className="dark-form-steps">
@@ -543,9 +533,11 @@ export default function FormModel({
                           name="age_of_roof"
                           value={formData.age_of_roof}
                           onChange={handleChange}
+                          onBlur={handleBlur}
                           placeholder="e.g. 10 years"
                         />
                       </div>
+                      {errors.age_of_roof && <span className="dark-error-message">{errors.age_of_roof}</span>}
                     </div>
 
                     <div className="dark-form-group">
@@ -644,20 +636,24 @@ export default function FormModel({
 
                     <div className="dark-form-group">
                       <label>Retail Bid Request</label>
-                      <div className="dark-input-with-icon">
+                      <div className="dark-select-with-icon">
                         <FiUsers className="dark-input-icon" />
-                        <input
-                          type="text"
+                        <select
                           name="retail_bid_request"
                           value={formData.retail_bid_request}
                           onChange={handleChange}
-                          placeholder="Bid Request In numbers"
-                        />
+                        >
+                          <option value="">Select option</option>
+                          {retailBidOptions.map((option, index) => (
+                            <option key={index} value={option}>{option}</option>
+                          ))}
+                        </select>
+                        <FiChevronDown className="dark-select-arrow" />
                       </div>
                     </div>
 
                     <div className="dark-form-group">
-                      <label>Inspection Date</label>
+                      <label>Appointment Date</label>
                       <div className="dark-datepicker-with-icon">
                         <FiCalendar className="dark-input-icon" />
                         <DatePicker
@@ -688,7 +684,7 @@ export default function FormModel({
                   {/* Meeting */}
                   {formData.assigned_to && (
                     <div className="dark-form-subsection">
-                      <h4 className="dark-subtitle"><FiCalendar /> Meeting (optional)</h4>
+                     
                       <div className="dark-form-grid">
                         <div className="dark-form-group">
                           <label>Meeting Date</label>
@@ -704,25 +700,45 @@ export default function FormModel({
                             />
                           </div>
                         </div>
-                      </div>
 
-                      {meetingDate && (
-                        <div className="dark-slots-box">
-                          <div className="dark-slots-header">
-                            Available slots for <strong>{meetingDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
+                        {meetingDate && (
+                          <div className="dark-form-group">
+                            <label>Available Slots</label>
+                            <div className="dark-select-with-icon">
+                              <FiCalendar className="dark-input-icon" />
+                              <select
+                                value={selectedSlot ? `${selectedSlot.start_time}-${selectedSlot.end_time}` : ''}
+                                onChange={(e) => {
+                                  const [start_time, end_time] = e.target.value.split('-');
+                                  setSelectedSlot({ date: meetingDateStr, start_time, end_time });
+                                }}
+                              >
+                                <option value="">Select a time slot</option>
+                                {slots.map((slot, idx) => {
+                                  const slotObj = {
+                                    date: slot.date || meetingDateStr,
+                                    start_time: trimTime(slot.start_time),
+                                    end_time: trimTime(slot.end_time),
+                                  };
+                                  return (
+                                    <option
+                                      key={idx}
+                                      value={`${slotObj.start_time}-${slotObj.end_time}`}
+                                    >
+                                      {slotObj.start_time} - {slotObj.end_time}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <FiChevronDown className="dark-select-arrow" />
+                            </div>
+                            {loadingSlots && <div className="dark-slots-loading">Loading slots...</div>}
+                            {!loadingSlots && slots.length === 0 && (
+                              <div className="dark-empty-slots">No slots available for this date. Please try another date.</div>
+                            )}
                           </div>
-
-                          {/* fetch once date is set */}
-                          <Slots
-                            assignedUserId={assignedUserId}
-                            meetingDateStr={meetingDateStr}
-                            loadingSlots={loadingSlots}
-                            slots={slots}
-                            selectedSlot={selectedSlot}
-                            setSelectedSlot={setSelectedSlot}
-                          />
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -788,54 +804,8 @@ export default function FormModel({
           </div>
         </div>
 
-        {/* toasts */}
         <ToastContainer position="bottom-right" />
       </div>
-    </div>
-  );
-}
-
-// Smaller sub-component for slots (kept identical behavior)
-function Slots({ assignedUserId, meetingDateStr, loadingSlots, slots, selectedSlot, setSelectedSlot }) {
-  const trimTime = (t) => (t ? t.slice(0, 5) : '');
-  if (!assignedUserId || !meetingDateStr) return null;
-
-  if (loadingSlots) {
-    return (
-      <div className="dark-slots-grid">
-        {[...Array(4)].map((_, i) => <div key={i} className="dark-slot skeleton" />)}
-      </div>
-    );
-  }
-
-  if (slots.length === 0) {
-    return <div className="dark-empty-slots">No slots available for this date. Please try another date.</div>;
-  }
-
-  return (
-    <div className="dark-slots-grid">
-      {slots.map((slot, idx) => {
-        const slotObj = {
-          date: slot.date || meetingDateStr,
-          start_time: trimTime(slot.start_time),
-          end_time: trimTime(slot.end_time),
-        };
-        const isSelected = selectedSlot
-          && selectedSlot.date === slotObj.date
-          && selectedSlot.start_time === slotObj.start_time
-          && selectedSlot.end_time === slotObj.end_time;
-
-        return (
-          <button
-            type="button"
-            key={idx}
-            className={`dark-slot ${isSelected ? 'selected' : ''}`}
-            onClick={() => setSelectedSlot(slotObj)}
-          >
-            {slotObj.start_time} - {slotObj.end_time}
-          </button>
-        );
-      })}
     </div>
   );
 }

@@ -632,16 +632,7 @@ export default function ItineraryViewerModalGoogleV2({
                           </div>
 
                           {/* NEW: Create form from this house location (works even if outside territory) */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openCreateFormAt(h.position.lat, h.position.lng);
-                            }}
-                            className="mt-2 w-full rounded-md bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-3 py-2"
-                          >
-                            Create House Here
-                          </button>
+                         
 
                           <button
                             type="button"
@@ -665,7 +656,7 @@ export default function ItineraryViewerModalGoogleV2({
                             }}
                             className="mt-2 w-full rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-3 py-2"
                           >
-                            Edit Lead
+                            Edit House
                           </button>
                         </>
                       )}
@@ -913,7 +904,7 @@ export default function ItineraryViewerModalGoogleV2({
                   isCreating ? "bg-blue-500/70" : "bg-blue-600 hover:bg-blue-700"
                 } text-white text-sm font-medium px-3 py-2`}
               >
-                {isCreating ? "Creating..." : "Create House"}
+                {isCreating ? "Creating..." : "Create Prospect"}
               </button>
               <button
                 onClick={() => setNewHouseModalOpen(false)}

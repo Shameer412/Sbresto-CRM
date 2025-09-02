@@ -8,7 +8,7 @@ import './Login.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useLoginUserMutation } from '../../features/api/apiSlice';
-
+import Logo from '../../assets/logo.jpg';
 const Login = () => {
   const [loginFormData, setLoginFormData] = useState({ 
     email: '', 
@@ -110,10 +110,10 @@ const Login = () => {
       <div className="sbr-login-card">
         <div className="sbr-company-header">
           <div className="sbr-company-logo">
-            <Home className="sbr-logo-icon" />
+             <img src={Logo} alt="Southern Belle Logo"  width="150px" height="130px"/>
           </div>
-          <h1 className="sbr-company-name">Southern Belle Restorations</h1>
-          <p className="sbr-company-tagline">Premium Roofing Solutions</p>
+          <h1 className="sbr-company-name">Southern Belle </h1>
+          <p className="sbr-company-tagline">Building relationships far beyond any single project.</p>
         </div>
         <form onSubmit={handleSubmit} className="sbr-login-form">
           <div className="sbr-form-group">

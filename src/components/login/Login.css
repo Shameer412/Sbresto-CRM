@@ -184,17 +184,15 @@
 }
 
 .sbr-company-logo {
-  width: 80px;
-  height: 80px;
+  width: 150px;
+  height: 130px;
   margin: 0 auto 24px;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  
   border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 
-    0 20px 40px rgba(59, 130, 246, 0.3),
-    0 0 60px rgba(139, 92, 246, 0.2);
+  
   position: relative;
   overflow: hidden;
 }
@@ -433,14 +431,12 @@
   }
   
   .sbr-company-logo {
-    width: 70px;
-    height: 70px;
+    border:2px solid #dc2626 ;
+    width: 300px;
+    height: 300px;
   }
   
-  .sbr-logo-icon {
-    width: 32px;
-    height: 32px;
-  }
+
   
   .sbr-form-input {
     padding: 14px 18px 14px 48px;

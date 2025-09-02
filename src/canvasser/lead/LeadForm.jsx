@@ -19,7 +19,7 @@ import {
   useCreateLeadMutation,
 } from '../../features/leads/leadsApiSlice';
 
-// Calendar API (match ScheduleMeeting.jsx)
+// Calendar API
 import { skipToken } from '@reduxjs/toolkit/query';
 import {
   useGetAvailableLeadSlotsQuery,
@@ -29,6 +29,7 @@ import {
 const damageTypeOptions = ['Roof', 'Siding', 'Windows', 'Flood', 'Other'];
 const priorityLevelOptions = ['Low', 'Medium', 'High', 'Urgent'];
 const insuredOptions = ['Yes', 'No'];
+const retailBidOptions = ['Yes', 'No'];
 
 /** Local date -> YYYY-MM-DD (no UTC shift) */
 const formatLocalYMD = (d) => {
@@ -84,7 +85,7 @@ const LeadForm = () => {
   const [meetingDate, setMeetingDate] = useState(null);    // Date object
   const [selectedSlot, setSelectedSlot] = useState(null);  // { date, start_time, end_time }
 
-  // Slots query — IMPORTANT: your ScheduleMeeting.jsx expects { leadId, date }, where leadId = salesperson/user id
+  // Slots query
   const assignedUserId = formData.assigned_to ? Number(formData.assigned_to) : null;
   const meetingDateStr = meetingDate ? formatLocalYMD(meetingDate) : null;
 
@@ -161,9 +162,6 @@ const LeadForm = () => {
       case 'notes':
         if (!value.trim()) error = 'Notes are required';
         break;
-      case 'retail_bid_request':
-        if (value && isNaN(Number(value))) error = 'Bid request must be a number';
-        break;
       case 'age_of_roof':
         if (value && !/^\d+(\s*years?)?$/.test(value)) error = 'Enter years as a number';
         break;
@@ -181,7 +179,7 @@ const LeadForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Required validation
+    // Required validation (excluding assigned_to, follow_up_date, retail_bid_request, priority_level)
     const required = ['full_name', 'email', 'phone', 'notes'];
     const newErrors = {};
     required.forEach(f => {
@@ -212,20 +210,16 @@ const LeadForm = () => {
         leadResp?.lead?.id ??
         leadResp?.id;
 
-      // 2) Optionally book meeting (ScheduleMeeting contract style)
+      // 2) Optionally book meeting
       if (selectedSlot && assignedUserId) {
-        // Build payload (include CRM lead_id for backend)
         const bookingPayload = {
-          // NOTE: "leadId" here = salesperson/user id (to match your ScheduleMeeting.jsx)
           leadId: assignedUserId,
           date: selectedSlot.date,
           start_time: selectedSlot.start_time,
           end_time: selectedSlot.end_time,
-          // ALSO include CRM lead id for backend to link:
           lead_id: createdLeadId,
         };
 
-        // Console log for verification
         console.log('📌 BookMeeting API Payload:', bookingPayload);
 
         try {
@@ -304,13 +298,13 @@ const LeadForm = () => {
           <div className="dark-success-icon">
             <FiCheck size={24} />
           </div>
-        <h2>Lead Created Successfully!</h2>
-        <p>Your new lead has been added to the system.</p>
-        <div className="dark-success-actions">
-          <button onClick={resetForm} className="dark-btn dark-btn-primary">
-            Create Another Lead
-          </button>
-        </div>
+          <h2>Lead Created Successfully!</h2>
+          <p>Your new lead has been added to the system.</p>
+          <div className="dark-success-actions">
+            <button onClick={resetForm} className="dark-btn dark-btn-primary">
+              Create Another Lead
+            </button>
+          </div>
         </div>
         <ToastContainer position="bottom-right" />
       </div>
@@ -564,9 +558,11 @@ const LeadForm = () => {
                     name="age_of_roof"
                     value={formData.age_of_roof}
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     placeholder="e.g. 10 years"
                   />
                 </div>
+                {errors.age_of_roof && <span id="err-age_of_roof" className="dark-error-message">{errors.age_of_roof}</span>}
               </div>
 
               <div className="dark-form-group">
@@ -665,20 +661,24 @@ const LeadForm = () => {
 
               <div className="dark-form-group">
                 <label>Retail Bid Request</label>
-                <div className="dark-input-with-icon">
+                <div className="dark-select-with-icon">
                   <FiUsers className="dark-input-icon" />
-                  <input
-                    type="text"
+                  <select
                     name="retail_bid_request"
                     value={formData.retail_bid_request}
                     onChange={handleChange}
-                    placeholder="Bid Request In numbers"
-                  />
+                  >
+                    <option value="">Select option</option>
+                    {retailBidOptions.map((option, index) => (
+                      <option key={index} value={option}>{option}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="dark-select-arrow" />
                 </div>
               </div>
 
               <div className="dark-form-group">
-                <label>Inspection Date</label>
+                <label>Appointment Date</label>
                 <div className="dark-datepicker-with-icon">
                   <FiCalendar className="dark-input-icon" />
                   <DatePicker
@@ -706,12 +706,10 @@ const LeadForm = () => {
               </div>
             </div>
 
-            {/* Meeting Inputs — SAME design as existing fields */}
+            {/* Meeting Inputs */}
             {showMeetingInputs && (
               <div className="dark-form-subsection">
-                <h4 className="dark-subtitle"><FiCalendar /> Meeting (optional)</h4>
-
-                {/* Meeting Date (same input pattern) */}
+              
                 <div className="dark-form-grid">
                   <div className="dark-form-group">
                     <label>Meeting Date</label>
@@ -727,56 +725,55 @@ const LeadForm = () => {
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Slots (button-style but same palette via existing classes) */}
-                {meetingDate && (
-                  <div className="dark-slots-box">
-                    <div className="dark-slots-header">
-                      Available slots for <strong>{meetingDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
-                    </div>
-
-                    {loadingSlots ? (
-                      <div className="dark-slots-grid">
-                        {[...Array(4)].map((_, i) => <div key={i} className="dark-slot skeleton" />)}
-                      </div>
-                    ) : slots.length === 0 ? (
-                      <div className="dark-empty-slots">No slots available for this date. Please try another date.</div>
-                    ) : (
-                      <div className="dark-slots-grid">
-                        {slots.map((slot, idx) => {
-                          const slotObj = {
-                            date: slot.date || meetingDateStr,
-                            start_time: trimTime(slot.start_time),
-                            end_time: trimTime(slot.end_time),
-                          };
-                          const isSelected = selectedSlot
-                            && selectedSlot.date === slotObj.date
-                            && selectedSlot.start_time === slotObj.start_time
-                            && selectedSlot.end_time === slotObj.end_time;
-
-                          return (
-                            <button
-                              type="button"
-                              key={idx}
-                              className={`dark-slot ${isSelected ? 'selected' : ''}`}
-                              onClick={() => setSelectedSlot(slotObj)}
+                  {meetingDate && (
+                    <div className="dark-form-group">
+                      <label>Available Slots</label>
+                      <div className="dark-slots-container">
+                        {loadingSlots ? (
+                          <div className="dark-slots-grid">
+                            {[...Array(4)].map((_, i) => (
+                              <div key={i} className="dark-slot skeleton" />
+                            ))}
+                          </div>
+                        ) : slots.length === 0 ? (
+                          <div className="dark-empty-slots">
+                            No slots available for this date. Please try another date.
+                          </div>
+                        ) : (
+                          <div className="dark-select-with-icon">
+                            <FiCalendar className="dark-input-icon" />
+                            <select
+                              value={selectedSlot ? `${selectedSlot.start_time}-${selectedSlot.end_time}` : ''}
+                              onChange={(e) => {
+                                const [start_time, end_time] = e.target.value.split('-');
+                                setSelectedSlot({ date: meetingDateStr, start_time, end_time });
+                              }}
                             >
-                              {slotObj.start_time} - {slotObj.end_time}
-                            </button>
-                          );
-                        })}
+                              <option value="">Select a time slot</option>
+                              {slots.map((slot, idx) => {
+                                const slotObj = {
+                                  date: slot.date || meetingDateStr,
+                                  start_time: trimTime(slot.start_time),
+                                  end_time: trimTime(slot.end_time),
+                                };
+                                return (
+                                  <option
+                                    key={idx}
+                                    value={`${slotObj.start_time}-${slotObj.end_time}`}
+                                  >
+                                    {slotObj.start_time} - {slotObj.end_time}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            <FiChevronDown className="dark-select-arrow" />
+                          </div>
+                        )}
                       </div>
-                    )}
-
-                    {selectedSlot && (
-                      <div className="dark-selected-slot">
-                        Selected: <strong>{selectedSlot.date}</strong>{' '}
-                        <span>{selectedSlot.start_time} - {selectedSlot.end_time}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

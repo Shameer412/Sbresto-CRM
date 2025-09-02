@@ -109,46 +109,7 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
             </li>
 
             {/* Territory Dropdown */}
-            <li>
-              <button
-                className={`db-dropdown-btn ${location.pathname.includes('/territory') ? 'db-active' : ''}`}
-                onClick={() => setTerritoryOpen(prev => !prev)}
-                aria-expanded={territoryOpen}
-                type="button"
-              >
-                <FiMap className="db-nav-icon" />
-                <span className="db-nav-text">Territory</span>
-                {territoryOpen ? (
-                  <FiChevronDown className="db-dropdown-arrow" />
-                ) : (
-                  <FiChevronRight className="db-dropdown-arrow" />
-                )}
-              </button>
-              {territoryOpen && (
-                <ul className="db-submenu">
-                  <li>
-                    <NavLink
-                      to="/createterritory"
-                      className={({ isActive }) => isActive ? 'db-active' : ''}
-                      onClick={handleNavClick}
-                    >
-                      <FiMapPin size={18} />
-                      <span className="db-nav-text1">Create Territory</span>
-                    </NavLink>
-                  </li>
-                  <li>
-                    <NavLink
-                      to="/territories"
-                      className={({ isActive }) => isActive ? 'db-active' : ''}
-                      onClick={handleNavClick}
-                    >
-                      <FiMap size={18} />
-                      <span className="db-nav-text1">Territory List</span>
-                    </NavLink>
-                  </li>
-                </ul>
-              )}
-            </li>
+           
 
             <li>
               <NavLink
@@ -189,6 +150,46 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                 <FaRegClock className="db-nav-icon" />
                 <span className="db-nav-text">Follow Up</span>
               </NavLink>
+            </li>
+             <li>
+              <button
+                className={`db-dropdown-btn ${location.pathname.includes('/territory') ? 'db-active' : ''}`}
+                onClick={() => setTerritoryOpen(prev => !prev)}
+                aria-expanded={territoryOpen}
+                type="button"
+              >
+                <FiMap className="db-nav-icon" />
+                <span className="db-nav-text">Map</span>
+                {territoryOpen ? (
+                  <FiChevronDown className="db-dropdown-arrow" />
+                ) : (
+                  <FiChevronRight className="db-dropdown-arrow" />
+                )}
+              </button>
+              {territoryOpen && (
+                <ul className="db-submenu">
+                  <li>
+                    <NavLink
+                      to="/createterritory"
+                      className={({ isActive }) => isActive ? 'db-active' : ''}
+                      onClick={handleNavClick}
+                    >
+                      <FiMapPin size={18} />
+                      <span className="db-nav-text1">Create Territory</span>
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/territories"
+                      className={({ isActive }) => isActive ? 'db-active' : ''}
+                      onClick={handleNavClick}
+                    >
+                      <FiMap size={18} />
+                      <span className="db-nav-text1">Territory List</span>
+                    </NavLink>
+                  </li>
+                </ul>
+              )}
             </li>
           </ul>
         </div>
