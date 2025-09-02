@@ -11,7 +11,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import "./LeadForm.css";
 
-// RTK Query hooks
+// Leads API
 import {
   useGetLeadStatusesQuery,
   useGetLeadSourcesQuery,
@@ -19,12 +19,29 @@ import {
   useCreateLeadMutation,
 } from '../../features/leads/leadsApiSlice';
 
+// Calendar API (match ScheduleMeeting.jsx)
+import { skipToken } from '@reduxjs/toolkit/query';
+import {
+  useGetAvailableLeadSlotsQuery,
+  useBookLeadMeetingMutation,
+} from '../../features/calender/scheduleApiSlice';
+
 const damageTypeOptions = ['Roof', 'Siding', 'Windows', 'Flood', 'Other'];
 const priorityLevelOptions = ['Low', 'Medium', 'High', 'Urgent'];
 const insuredOptions = ['Yes', 'No'];
 
+/** Local date -> YYYY-MM-DD (no UTC shift) */
+const formatLocalYMD = (d) => {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+};
+const trimTime = (t) => (t ? t.slice(0, 5) : '');
+
 const LeadForm = () => {
-  // Fetch API-based options
+  // Fetch options
   const { data: statusResp } = useGetLeadStatusesQuery();
   const statusOptions = statusResp?.data || [];
 
@@ -36,6 +53,7 @@ const LeadForm = () => {
 
   // Mutations
   const [createLead, { isLoading: isCreating }] = useCreateLeadMutation();
+  const [bookMeeting, { isLoading: bookingMeeting }] = useBookLeadMeetingMutation();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -61,6 +79,24 @@ const LeadForm = () => {
     retail_bid_request: ''
   });
 
+  // Meeting (NOT sent in create payload)
+  const [showMeetingInputs, setShowMeetingInputs] = useState(false);
+  const [meetingDate, setMeetingDate] = useState(null);    // Date object
+  const [selectedSlot, setSelectedSlot] = useState(null);  // { date, start_time, end_time }
+
+  // Slots query — IMPORTANT: your ScheduleMeeting.jsx expects { leadId, date }, where leadId = salesperson/user id
+  const assignedUserId = formData.assigned_to ? Number(formData.assigned_to) : null;
+  const meetingDateStr = meetingDate ? formatLocalYMD(meetingDate) : null;
+
+  const { data: slotData, isLoading: loadingSlots } =
+    useGetAvailableLeadSlotsQuery(
+      (assignedUserId && meetingDateStr)
+        ? { leadId: assignedUserId, date: meetingDateStr }
+        : skipToken
+    );
+  const slots = slotData?.available_slots || [];
+
+  // UI state
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +104,6 @@ const LeadForm = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileSteps, setShowMobileSteps] = useState(false);
 
-  // Step definitions
   const steps = [
     { id: 'personal', title: 'Personal', icon: <FiUser /> },
     { id: 'property', title: 'Property', icon: <FiHome /> },
@@ -78,33 +113,34 @@ const LeadForm = () => {
     { id: 'notes', title: 'Notes', icon: <FiFileText /> }
   ];
 
-  // Check screen size on mount and resize
   useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    
-    return () => window.removeEventListener('resize', checkScreenSize);
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Handle form field changes
+  // Handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+
+    if (name === 'assigned_to') {
+      const hasUser = !!value;
+      setShowMeetingInputs(hasUser);
+      setMeetingDate(null);
+      setSelectedSlot(null);
+    }
   };
 
   const handleDateChange = (date, field) => {
     setFormData(prev => ({
       ...prev,
-      [field]: date ? date.toISOString().split('T')[0] : ''
+      [field]: date ? formatLocalYMD(date) : ''
     }));
   };
 
-  // Field validation
   const validateField = (name, value) => {
     let error = '';
     switch (name) {
@@ -125,48 +161,83 @@ const LeadForm = () => {
       case 'notes':
         if (!value.trim()) error = 'Notes are required';
         break;
-      default:
+      case 'retail_bid_request':
+        if (value && isNaN(Number(value))) error = 'Bid request must be a number';
         break;
+      case 'age_of_roof':
+        if (value && !/^\d+(\s*years?)?$/.test(value)) error = 'Enter years as a number';
+        break;
+      default: break;
     }
     return error;
   };
 
   const handleBlur = (e) => {
     const { name, value } = e.target;
-    const error = validateField(name, value);
-    setErrors(prev => ({ ...prev, [name]: error }));
+    setErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Validate required fields
-    const requiredFields = ['full_name', 'email', 'phone', 'notes'];
+    // Required validation
+    const required = ['full_name', 'email', 'phone', 'notes'];
     const newErrors = {};
-    requiredFields.forEach(field => {
-      const error = validateField(field, formData[field]);
-      if (error) newErrors[field] = error;
+    required.forEach(f => {
+      const err = validateField(f, formData[f]);
+      if (err) newErrors[f] = err;
     });
     setErrors(newErrors);
-
     if (Object.keys(newErrors).length > 0) {
       toast.error('Please fix the errors in the form');
       setIsSubmitting(false);
       return;
     }
 
-    // Prepare data for API
-    let payload = { ...formData };
-    if (formData.notes && formData.notes.trim()) {
-      payload.notes = formData.notes;
-    } else {
-      delete payload.notes;
-    }
+    // Normalize IDs
+    const payload = {
+      ...formData,
+      assigned_to: formData.assigned_to ? Number(formData.assigned_to) : undefined,
+      status: formData.status ? Number(formData.status) : undefined,
+      lead_source: formData.lead_source ? Number(formData.lead_source) : undefined,
+    };
+    if (!formData.notes?.trim()) delete payload.notes;
 
     try {
-      const lead = await createLead(payload).unwrap();
-      toast.success('Lead created successfully!');
+      // 1) Create lead
+      const leadResp = await createLead(payload).unwrap();
+      const createdLeadId =
+        leadResp?.data?.id ??
+        leadResp?.lead?.id ??
+        leadResp?.id;
+
+      // 2) Optionally book meeting (ScheduleMeeting contract style)
+      if (selectedSlot && assignedUserId) {
+        // Build payload (include CRM lead_id for backend)
+        const bookingPayload = {
+          // NOTE: "leadId" here = salesperson/user id (to match your ScheduleMeeting.jsx)
+          leadId: assignedUserId,
+          date: selectedSlot.date,
+          start_time: selectedSlot.start_time,
+          end_time: selectedSlot.end_time,
+          // ALSO include CRM lead id for backend to link:
+          lead_id: createdLeadId,
+        };
+
+        // Console log for verification
+        console.log('📌 BookMeeting API Payload:', bookingPayload);
+
+        try {
+          await bookMeeting(bookingPayload).unwrap();
+          toast.success(`Meeting slot booked successfully! Lead ID: ${createdLeadId}`);
+        } catch (err) {
+          toast.error('Lead saved, but booking failed: ' + (err?.data?.message || err.message));
+        }
+      } else {
+        toast.success('Lead created successfully!');
+      }
+
       setIsSuccess(true);
     } catch (err) {
       toast.error(err?.data?.message || err.message || 'Failed to create lead. Please try again.');
@@ -175,22 +246,21 @@ const LeadForm = () => {
     }
   };
 
-  // Navigation between steps
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
       if (isMobile) setShowMobileSteps(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
       if (isMobile) setShowMobileSteps(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  // Reset form
   const resetForm = () => {
     setFormData({
       full_name: '',
@@ -217,19 +287,15 @@ const LeadForm = () => {
     setErrors({});
     setCurrentStep(0);
     setIsSuccess(false);
+    setShowMeetingInputs(false);
+    setMeetingDate(null);
+    setSelectedSlot(null);
   };
 
-  // Prevent Enter key from submitting in textarea
   const handleNotesKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) e.preventDefault();
   };
-
-  // Toggle mobile steps visibility
-  const toggleMobileSteps = () => {
-    setShowMobileSteps(!showMobileSteps);
-  };
+  const toggleMobileSteps = () => setShowMobileSteps(!showMobileSteps);
 
   if (isSuccess) {
     return (
@@ -238,13 +304,13 @@ const LeadForm = () => {
           <div className="dark-success-icon">
             <FiCheck size={24} />
           </div>
-          <h2>Lead Created Successfully!</h2>
-          <p>Your new lead has been added to the system.</p>
-          <div className="dark-success-actions">
-            <button onClick={resetForm} className="dark-btn dark-btn-primary">
-              Create Another Lead
-            </button>
-          </div>
+        <h2>Lead Created Successfully!</h2>
+        <p>Your new lead has been added to the system.</p>
+        <div className="dark-success-actions">
+          <button onClick={resetForm} className="dark-btn dark-btn-primary">
+            Create Another Lead
+          </button>
+        </div>
         </div>
         <ToastContainer position="bottom-right" />
       </div>
@@ -263,13 +329,14 @@ const LeadForm = () => {
         <button 
           onClick={toggleMobileSteps}
           className="dark-mobile-steps-toggle"
+          type="button"
         >
           {showMobileSteps ? <FiX size={20} /> : <FiMenu size={20} />}
           <span>{steps[currentStep].title}</span>
         </button>
       )}
 
-      {/* Progress Steps */}
+      {/* Steps */}
       <div className={`dark-form-steps-container ${showMobileSteps ? 'mobile-visible' : ''}`}>
         <div className="dark-form-steps">
           {steps.map((step, index) => (
@@ -279,6 +346,7 @@ const LeadForm = () => {
               onClick={() => {
                 setCurrentStep(index);
                 if (isMobile) setShowMobileSteps(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             >
               <div className="dark-step-icon">
@@ -294,7 +362,7 @@ const LeadForm = () => {
       </div>
 
       <form className="dark-form">
-        {/* Personal Information */}
+        {/* Step 0: Personal */}
         {currentStep === 0 && (
           <div className="dark-form-section">
             <h3><FiUser /> Personal Information</h3>
@@ -310,9 +378,11 @@ const LeadForm = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="John Doe"
+                    aria-invalid={!!errors.full_name}
+                    aria-describedby={errors.full_name ? 'err-full_name' : undefined}
                   />
                 </div>
-                {errors.full_name && <span className="dark-error-message">{errors.full_name}</span>}
+                {errors.full_name && <span id="err-full_name" className="dark-error-message">{errors.full_name}</span>}
               </div>
 
               <div className={`dark-form-group ${errors.email ? 'error' : ''}`}>
@@ -326,9 +396,11 @@ const LeadForm = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="john@example.com"
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? 'err-email' : undefined}
                   />
                 </div>
-                {errors.email && <span className="dark-error-message">{errors.email}</span>}
+                {errors.email && <span id="err-email" className="dark-error-message">{errors.email}</span>}
               </div>
 
               <div className={`dark-form-group ${errors.phone ? 'error' : ''}`}>
@@ -342,15 +414,17 @@ const LeadForm = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="(123) 456-7890"
+                    aria-invalid={!!errors.phone}
+                    aria-describedby={errors.phone ? 'err-phone' : undefined}
                   />
                 </div>
-                {errors.phone && <span className="dark-error-message">{errors.phone}</span>}
+                {errors.phone && <span id="err-phone" className="dark-error-message">{errors.phone}</span>}
               </div>
             </div>
           </div>
         )}
 
-        {/* Property Information */}
+        {/* Step 1: Property */}
         {currentStep === 1 && (
           <div className="dark-form-section">
             <h3><FiHome /> Property Information</h3>
@@ -380,9 +454,11 @@ const LeadForm = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="12345"
+                    aria-invalid={!!errors.zip_code}
+                    aria-describedby={errors.zip_code ? 'err-zip' : undefined}
                   />
                 </div>
-                {errors.zip_code && <span className="dark-error-message">{errors.zip_code}</span>}
+                {errors.zip_code && <span id="err-zip" className="dark-error-message">{errors.zip_code}</span>}
               </div>
 
               <div className="dark-form-group">
@@ -420,7 +496,7 @@ const LeadForm = () => {
           </div>
         )}
 
-        {/* Insurance Information */}
+        {/* Step 2: Insurance */}
         {currentStep === 2 && (
           <div className="dark-form-section">
             <h3><FiShield /> Insurance Information</h3>
@@ -474,7 +550,7 @@ const LeadForm = () => {
           </div>
         )}
 
-        {/* Roof Details */}
+        {/* Step 3: Roof */}
         {currentStep === 3 && (
           <div className="dark-form-section">
             <h3><FiClipboard /> Roof Specifications</h3>
@@ -510,7 +586,7 @@ const LeadForm = () => {
           </div>
         )}
 
-        {/* Lead Management */}
+        {/* Step 4: Management + Meeting */}
         {currentStep === 4 && (
           <div className="dark-form-section">
             <h3><FiStar /> Lead Management</h3>
@@ -526,7 +602,7 @@ const LeadForm = () => {
                   >
                     <option value="">Select lead source</option>
                     {sourceOptions.map((source) => (
-                      <option key={source.id} value={source.name}>{source.name}</option>
+                      <option key={source.id} value={source.id}>{source.name}</option>
                     ))}
                   </select>
                   <FiChevronDown className="dark-select-arrow" />
@@ -544,7 +620,7 @@ const LeadForm = () => {
                   >
                     <option value="">Select status</option>
                     {statusOptions.map((status) => (
-                      <option key={status.id} value={status.name}>{status.name}</option>
+                      <option key={status.id} value={status.id}>{status.name}</option>
                     ))}
                   </select>
                   <FiChevronDown className="dark-select-arrow" />
@@ -629,10 +705,84 @@ const LeadForm = () => {
                 </div>
               </div>
             </div>
+
+            {/* Meeting Inputs — SAME design as existing fields */}
+            {showMeetingInputs && (
+              <div className="dark-form-subsection">
+                <h4 className="dark-subtitle"><FiCalendar /> Meeting (optional)</h4>
+
+                {/* Meeting Date (same input pattern) */}
+                <div className="dark-form-grid">
+                  <div className="dark-form-group">
+                    <label>Meeting Date</label>
+                    <div className="dark-datepicker-with-icon">
+                      <FiCalendar className="dark-input-icon" />
+                      <DatePicker
+                        selected={meetingDate}
+                        onChange={(date) => { setMeetingDate(date); setSelectedSlot(null); }}
+                        placeholderText="Choose a date to load slots"
+                        dateFormat="MM/dd/yyyy"
+                        className="dark-datepicker-input"
+                        minDate={new Date()}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slots (button-style but same palette via existing classes) */}
+                {meetingDate && (
+                  <div className="dark-slots-box">
+                    <div className="dark-slots-header">
+                      Available slots for <strong>{meetingDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
+                    </div>
+
+                    {loadingSlots ? (
+                      <div className="dark-slots-grid">
+                        {[...Array(4)].map((_, i) => <div key={i} className="dark-slot skeleton" />)}
+                      </div>
+                    ) : slots.length === 0 ? (
+                      <div className="dark-empty-slots">No slots available for this date. Please try another date.</div>
+                    ) : (
+                      <div className="dark-slots-grid">
+                        {slots.map((slot, idx) => {
+                          const slotObj = {
+                            date: slot.date || meetingDateStr,
+                            start_time: trimTime(slot.start_time),
+                            end_time: trimTime(slot.end_time),
+                          };
+                          const isSelected = selectedSlot
+                            && selectedSlot.date === slotObj.date
+                            && selectedSlot.start_time === slotObj.start_time
+                            && selectedSlot.end_time === slotObj.end_time;
+
+                          return (
+                            <button
+                              type="button"
+                              key={idx}
+                              className={`dark-slot ${isSelected ? 'selected' : ''}`}
+                              onClick={() => setSelectedSlot(slotObj)}
+                            >
+                              {slotObj.start_time} - {slotObj.end_time}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {selectedSlot && (
+                      <div className="dark-selected-slot">
+                        Selected: <strong>{selectedSlot.date}</strong>{' '}
+                        <span>{selectedSlot.start_time} - {selectedSlot.end_time}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Notes */}
+        {/* Step 5: Notes */}
         {currentStep === 5 && (
           <div className="dark-form-section">
             <h3><FiFileText /> Additional Notes</h3>
@@ -646,13 +796,15 @@ const LeadForm = () => {
                 onKeyDown={handleNotesKeyDown}
                 rows="6"
                 placeholder="Enter any additional notes about this lead..."
+                aria-invalid={!!errors.notes}
+                aria-describedby={errors.notes ? 'err-notes' : undefined}
               />
-              {errors.notes && <span className="dark-error-message">{errors.notes}</span>}
+              {errors.notes && <span id="err-notes" className="dark-error-message">{errors.notes}</span>}
             </div>
           </div>
         )}
 
-        {/* Navigation Buttons */}
+        {/* Navigation */}
         <div className="dark-form-navigation">
           {currentStep > 0 && (
             <button type="button" onClick={prevStep} className="dark-btn dark-btn-secondary">
@@ -665,12 +817,12 @@ const LeadForm = () => {
             </button>
           ) : (
             <button 
-              type="button" 
+              type="button"
               onClick={handleSubmit}
               className="dark-btn dark-btn-primary"
-              disabled={isSubmitting || isCreating}
+              disabled={isSubmitting || isCreating || bookingMeeting}
             >
-              {(isSubmitting || isCreating) ? 'Submitting...' : 'Submit Lead'}
+              {(isSubmitting || isCreating) ? 'Submitting...' : (bookingMeeting ? 'Booking...' : 'Submit Lead')}
             </button>
           )}
         </div>

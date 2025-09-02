@@ -7,13 +7,25 @@ import { useCreateItineraryItemMutation } from "../../features/territory/Territo
 import { useGetLeadUsersQuery } from "../../features/leads/leadsApiSlice";
 import toast, { Toaster } from "react-hot-toast";
 
-// ⚠️ Tumhari demand ke mutabiq key component ke andar:
+// ⚠️ Tumhari demand ke mutabiq: region-locked map (Houston + nearby states)
 const GOOGLE_MAPS_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
 
-// Constants
-const DEFAULT_MAP_CENTER = { lat: 37.0902, lng: -95.7129 };
-const DEFAULT_ZOOM = 5;
+// =====================
+// Region + Map Constants
+// =====================
+const HOUSTON_CENTER = { lat: 29.7604, lng: -95.3698 };
+const DEFAULT_MAP_CENTER = HOUSTON_CENTER;
+const DEFAULT_ZOOM = 6;
 const DEFAULT_COLOR = "#3B82F6";
+
+// Wide but sensible rectangle to cover TX and ~10–15 nearby states
+// (AZ, NM, CO, KS, MO, OK, AR, LA, MS, AL, GA, FL, TN, etc.)
+const SOUTH_CENTRAL_BOUNDS = {
+  north: 41.2,
+  south: 24.2,
+  west: -114.8,
+  east: -79.5,
+};
 
 const BASE_MAP_OPTIONS = {
   streetViewControl: false,
@@ -35,10 +47,12 @@ const BASE_MAP_OPTIONS = {
     { featureType: "road", stylers: [{ visibility: "off" }] },
     { featureType: "transit", stylers: [{ visibility: "off" }] },
     { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] }
-  ]
+  ],
 };
 
+// ============
 // Helpers
+// ============
 const loadScript = (src) =>
   new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
@@ -76,6 +90,12 @@ const getLocationName = (addressComponents = []) => {
   );
 };
 
+// Build reusable LatLngBounds instance from our constant box
+const makeRegionBounds = () => new window.google.maps.LatLngBounds(
+  new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+  new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+);
+
 const TerritoryMapCreate = () => {
   // Refs
   const mapRef = useRef(null);
@@ -108,7 +128,7 @@ const TerritoryMapCreate = () => {
   // RTK Query
   const [createItem, { isLoading: isSaving }] = useCreateItineraryItemMutation();
 
-  // 🔹 Users (align with UserLeadsDashboard)
+  // Users (same shape as your dashboard)
   const [usersPage] = useState(1);
   const {
     data: usersData = {},
@@ -118,11 +138,12 @@ const TerritoryMapCreate = () => {
     refetch: refetchUsers,
   } = useGetLeadUsersQuery(usersPage);
 
-  // Exact same shape as your dashboard:
   const users = usersData?.data?.data || [];
   const [assignedUserId, setAssignedUserId] = useState("");
 
-  // Map init
+  // ==================
+  // Map Initialization
+  // ==================
   const initializeMap = useCallback(async () => {
     try {
       await loadScript(
@@ -134,9 +155,14 @@ const TerritoryMapCreate = () => {
         zoom: DEFAULT_ZOOM,
         mapTypeId: mapType,
         ...BASE_MAP_OPTIONS,
+        restriction: {
+          latLngBounds: SOUTH_CENTRAL_BOUNDS,
+          strictBounds: true,
+        },
       });
       mapObjRef.current = map;
 
+      // Drawing manager
       const drawingManager = new window.google.maps.drawing.DrawingManager({
         drawingMode: null,
         drawingControl: false,
@@ -153,6 +179,7 @@ const TerritoryMapCreate = () => {
       drawingManager.setMap(map);
       drawingManagerRef.current = drawingManager;
 
+      // Overlay complete
       const oc = window.google.maps.event.addListener(drawingManager, "overlaycomplete", (event) => {
         if (event.type === "polygon") {
           handlePolygonComplete(event.overlay);
@@ -163,6 +190,7 @@ const TerritoryMapCreate = () => {
       });
       gListenersRef.current.push(oc);
 
+      // Services
       autocompleteService.current = new window.google.maps.places.AutocompleteService();
       placesService.current = new window.google.maps.places.PlacesService(map);
 
@@ -171,11 +199,13 @@ const TerritoryMapCreate = () => {
       console.error(e);
       toast.error("Failed to load Google Maps.");
     }
-  }, [color, mapType]);
+  // IMPORTANT: run once. Don't depend on color/mapType here to avoid re-initialization glitches
+  }, []);
 
   useEffect(() => {
     initializeMap();
     return () => {
+      // cleanup listeners
       gListenersRef.current.forEach((l) => window.google?.maps?.event?.removeListener(l));
       gListenersRef.current = [];
       if (oneClickRadiusRef.current) {
@@ -187,7 +217,7 @@ const TerritoryMapCreate = () => {
     };
   }, [initializeMap]);
 
-  // Color live update
+  // Update polygon/radius color live
   useEffect(() => {
     if (!drawingManagerRef.current) return;
     drawingManagerRef.current.setOptions({
@@ -200,7 +230,15 @@ const TerritoryMapCreate = () => {
     if (radiusCircleRef.current) radiusCircleRef.current.setOptions({ strokeColor: color, fillColor: color });
   }, [color]);
 
-  // Polygon complete
+  // Update mapType dynamically (without reloading map)
+  useEffect(() => {
+    if (!mapObjRef.current) return;
+    mapObjRef.current.setMapTypeId(mapType);
+  }, [mapType]);
+
+  // ==============
+  // Polygon Handle
+  // ==============
   const handlePolygonComplete = useCallback((overlay) => {
     const path = overlay.getPath();
     const points = [];
@@ -225,11 +263,22 @@ const TerritoryMapCreate = () => {
     });
   }, []);
 
+  // =======
   // Search
+  // =======
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim() || !autocompleteService.current) return;
+
+    const bounds = makeRegionBounds();
+    // Prefer bias within our region. locationRestriction is not widely available in web v3.
     autocompleteService.current.getPlacePredictions(
-      { input: searchQuery, componentRestrictions: { country: "us" }, types: ["geocode"] },
+      {
+        input: searchQuery,
+        componentRestrictions: { country: "us" },
+        bounds, // clamp/bias to our region
+        // locationBias: bounds, // alternative bias param on some versions
+        types: ["geocode"],
+      },
       (predictions, status) => {
         if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
           setSearchResults([]);
@@ -246,15 +295,20 @@ const TerritoryMapCreate = () => {
     if (!placesService.current) return;
     placesService.current.getDetails({ placeId }, (place, status) => {
       if (status === window.google.maps.places.PlacesServiceStatus.OK && place.geometry) {
-        mapObjRef.current?.panTo(place.geometry.location);
-        mapObjRef.current?.setZoom(15);
+        const loc = place.geometry.location;
+        const inBounds = makeRegionBounds().contains(loc);
+        const target = inBounds ? loc : new window.google.maps.LatLng(HOUSTON_CENTER.lat, HOUSTON_CENTER.lng);
+        mapObjRef.current?.panTo(target);
+        mapObjRef.current?.setZoom(12);
         setShowSearchResults(false);
         setSearchQuery(place.formatted_address || "");
       }
     });
   }, []);
 
+  // =========
   // Drawing
+  // =========
   const startDrawing = useCallback(() => {
     if (!drawingManagerRef.current) return;
     setCoords(null);
@@ -296,7 +350,14 @@ const TerritoryMapCreate = () => {
     }
 
     oneClickRadiusRef.current = window.google.maps.event.addListener(mapObjRef.current, "click", (e) => {
-      const center = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      const p = e.latLng;
+      const inBounds = makeRegionBounds().contains(p);
+      if (!inBounds) {
+        toast.error("Please select a point within the allowed region.");
+        return;
+      }
+
+      const center = { lat: p.lat(), lng: p.lng() };
       setCenterLL(center);
       setSavingUIOpen(true);
 
@@ -313,7 +374,7 @@ const TerritoryMapCreate = () => {
       });
 
       setDetecting(true);
-      new window.google.maps.Geocoder().geocode({ location: e.latLng }, (results, status) => {
+      new window.google.maps.Geocoder().geocode({ location: p }, (results, status) => {
         setDetecting(false);
         if (status === "OK" && results?.[0]) {
           const name = getLocationName(results[0].address_components) || results[0].formatted_address.split(",")[0];
@@ -327,7 +388,9 @@ const TerritoryMapCreate = () => {
     });
   };
 
+  // ======
   // Save
+  // ======
   const handleSave = async (e) => {
     e.preventDefault();
 
@@ -345,7 +408,7 @@ const TerritoryMapCreate = () => {
       name,
       type,
       color,
-      assigned_to: assignedUserId || null, // 🔹 EXACT field expected by your backend
+      assigned_to: assignedUserId || null,
       polygon: null,
       radius: null,
       center_lat: null,
@@ -361,9 +424,9 @@ const TerritoryMapCreate = () => {
     }
 
     try {
-      const res = await useCreateItineraryItemMutation.prototype?.unwrap
-        ? (await createItem({ type, payload: body }).unwrap())
-        : (await createItem({ type, payload: body }));
+      const res = createItem({ type, payload: body }).unwrap
+        ? await createItem({ type, payload: body }).unwrap()
+        : await createItem({ type, payload: body });
 
       toast.success(res?.message || "Territory created successfully.");
       setSavingUIOpen(false);
@@ -380,12 +443,14 @@ const TerritoryMapCreate = () => {
     }
   };
 
-  // Map nav
+  // =============
+  // Map Controls
+  // =============
   const zoomIn = () => mapObjRef.current?.setZoom(mapObjRef.current.getZoom() + 1);
   const zoomOut = () => mapObjRef.current?.setZoom(mapObjRef.current.getZoom() - 1);
   const resetView = () => {
     if (!mapObjRef.current) return;
-    mapObjRef.current.panTo(DEFAULT_MAP_CENTER);
+    mapObjRef.current.panTo(HOUSTON_CENTER);
     mapObjRef.current.setZoom(DEFAULT_ZOOM);
   };
 
@@ -613,7 +678,7 @@ const TerritoryMapCreate = () => {
                 />
               </div>
 
-              {/* 🔹 Assign to user (same shape as your dashboard) */}
+              {/* Assign to user */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Assign to User</label>
                 {isLoadingUsers ? (

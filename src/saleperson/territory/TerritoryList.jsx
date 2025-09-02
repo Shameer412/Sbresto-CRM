@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Loader2, Eye, Pencil, Trash2, ChevronLeft, ChevronRight,
   Search, MapPin, ChevronsLeft, ChevronsRight, Plus, X,
-  Calendar, Clock, Route, Layers, Users as UsersIcon
+  Calendar, Clock, Route, Layers, BarChart3
 } from "lucide-react";
 
 import {
@@ -116,7 +116,49 @@ const formatDate = (dateString) => {
   } catch { return dateString; }
 };
 
+/* ===========================
+ *   STATS MODAL
+ * =========================== */
+function ItineraryStatsModal({ open, onClose, item }) {
+  if (!open || !item) return null;
+  const stats = item.stats || {};
+  const metrics = [
+    { key: 'homesVisited', label: 'Homes Visited' },
+    { key: 'leadsCreated', label: 'Leads Created' },
+    { key: 'conversions', label: 'Conversions' },
+    { key: 'followUps', label: 'Follow-ups Scheduled' },
+  ];
 
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-800/40">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-100">Itinerary Stats</h3>
+            <p className="text-sm text-gray-400 truncate">{item?.name || '—'}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg border border-gray-600/60 hover:bg-gray-700/50 text-gray-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {metrics.map((m) => (
+            <div key={m.key} className="rounded-xl border border-gray-700 bg-gray-800/40 p-4">
+              <div className="text-xs text-gray-400 mb-1">{m.label}</div>
+              <div className="text-2xl font-semibold text-gray-100">{Number(stats[m.key] ?? 0)}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-6 pb-6 flex justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-600 bg-gray-800/60 text-gray-200 hover:bg-gray-700/60">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ===========================
  *   MAIN COMPONENT
@@ -125,7 +167,8 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
   const [editId, setEditId] = useState(null);
   const [viewId, setViewId] = useState(null);
 
-
+  // NEW: stats modal state
+  const [statsItem, setStatsItem] = useState(null);
 
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(15);
@@ -312,16 +355,13 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
                           </button>
                         </Tooltip>
 
-                        {/* Add Users */}
-                        <Tooltip content="Add users">
+                        {/* Stats (replaces Add Users) */}
+                        <Tooltip content="View stats">
                           <button
                             className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 transition-all duration-200 hover:shadow-sm hover:-translate-y-0.5"
-                            onClick={() => {
-                              setAddUsersForId(item.id);
-                              setAddUsersForName(item.name || "");
-                            }}
+                            onClick={() => setStatsItem(item)}
                           >
-                            <UsersIcon className="w-4 h-4" />
+                            <BarChart3 className="w-4 h-4" />
                           </button>
                         </Tooltip>
                       </div>
@@ -421,7 +461,12 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
         />
       )}
 
-     
+      {/* NEW: Stats Modal */}
+      <ItineraryStatsModal
+        open={!!statsItem}
+        item={statsItem}
+        onClose={() => setStatsItem(null)}
+      />
     </div>
   );
 }

@@ -20,12 +20,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
   const editListenersRef = useRef([]);
 
   // === Dark Mode State ===
-  const [darkMode, setDarkMode] = useState(() => {
-    // Check for saved preference or system preference
-    const saved = localStorage.getItem("territoryDarkMode");
-    if (saved !== null) return JSON.parse(saved);
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  const [darkMode, setDarkMode] = useState(true); // Force dark mode by default
 
   // Persist dark mode preference
   useEffect(() => {
@@ -102,8 +97,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
   useEffect(() => {
     if (!scriptLoaded || !open || !mapRef.current) return;
 
-    const mapStyles = darkMode ? [
-      { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+    const mapStyles = [
+      { elementType: "geometry", stylers: [{ color: "#1a1a1a" }] },
       { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
       { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
       {
@@ -181,8 +176,6 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
         elementType: "labels.text.stroke",
         stylers: [{ color: "#17263c" }]
       },
-      { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
-    ] : [
       { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
     ];
 
@@ -340,11 +333,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
       b.type = "button";
       b.title = title;
       b.textContent = label;
-      b.className = `p-2 rounded shadow-md hover:bg-opacity-80 w-9 h-9 flex items-center justify-center text-lg ${
-        isDark 
-          ? "bg-gray-700 text-gray-200 hover:bg-gray-600" 
-          : "bg-white text-gray-800 hover:bg-gray-100"
-      }`;
+      b.className = `p-2 rounded shadow-md hover:bg-opacity-80 w-9 h-9 flex items-center justify-center text-lg bg-gray-800 text-gray-300 hover:bg-gray-700`;
       return b;
     };
 
@@ -517,42 +506,30 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
   const hasApiTerritory = Boolean(apiRes?.data);
 
   return (
-    <div className={`fixed inset-0 z-[999] flex items-center justify-center p-4 ${darkMode ? "bg-gray-900" : "bg-black/90"}`}>
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900">
       <div
         className={`rounded-xl shadow-2xl relative flex flex-col z-[999] transition-all duration-300 overflow-hidden ${
           isFullscreen ? "w-full h-full" : "w-full max-w-6xl h-[90vh]"
-        } ${darkMode ? "bg-gray-800 text-gray-100" : "bg-white text-gray-900"}`}
+        } bg-gray-800 text-gray-200`}
       >
         {/* Header */}
-        <div className={`flex justify-between items-center p-4 border-b rounded-t-xl ${
-          darkMode 
-            ? "bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700" 
-            : "bg-gradient-to-r from-blue-600 to-blue-700 border-blue-500 text-white"
-        }`}>
+        <div className="flex justify-between items-center p-4 border-b rounded-t-xl bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MapPin size={20} />
             {hasApiTerritory ? "Edit Territory" : "Create Territory"}
-            <span className={`ml-2 text-xs px-2 py-0.5 rounded ${
-              darkMode ? "bg-gray-700 text-gray-300" : "bg-white/20 text-white"
-            }`}>ID: {id}</span>
+            <span className="ml-2 text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: {id}</span>
           </h2>
 
           <div className="flex items-center gap-2">
             {(isFetching || isDataLoading) && (
-              <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded ${
-                darkMode ? "bg-gray-700 text-gray-300" : "bg-white/20 text-white"
-              }`}>
+              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">
                 <Loader2 size={12} className="animate-spin" /> fetching
               </span>
             )}
             
             <button
               onClick={toggleDarkMode}
-              className={`p-2 rounded transition-colors ${
-                darkMode 
-                  ? "text-yellow-300 hover:bg-gray-700" 
-                  : "text-blue-100 hover:bg-blue-500"
-              }`}
+              className="p-2 rounded transition-colors text-yellow-300 hover:bg-gray-700"
               title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -560,11 +537,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
             
             <button
               onClick={toggleFullscreen}
-              className={`p-2 rounded transition-colors ${
-                darkMode 
-                  ? "text-gray-300 hover:bg-gray-700" 
-                  : "text-white hover:bg-blue-500"
-              }`}
+              className="p-2 rounded transition-colors text-gray-300 hover:bg-gray-700"
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -572,11 +545,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
 
             <button 
               onClick={onClose} 
-              className={`p-2 rounded transition-colors ${
-                darkMode 
-                  ? "text-gray-300 hover:bg-gray-700" 
-                  : "text-white hover:bg-blue-500"
-              }`}
+              className="p-2 rounded transition-colors text-gray-300 hover:bg-gray-700"
             >
               <X size={18} />
             </button>
@@ -585,42 +554,36 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
 
         {/* Error state */}
         {isError && (
-          <div className={`p-6 ${darkMode ? "text-red-400" : "text-red-600"}`}>
+          <div className="p-6 text-red-400">
             {(error && (error.data?.message || error.error)) || "Failed to load territory."}
           </div>
         )}
 
         {/* Loading state */}
         {isDataLoading && !isError ? (
-          <div className={`flex items-center justify-center p-12 flex-col ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-            <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />
-            <span className={darkMode ? "text-gray-400" : "text-gray-600"}>Loading territory data...</span>
+          <div className="flex items-center justify-center p-12 flex-col bg-gray-800">
+            <Loader2 className="animate-spin text-blue-500 mb-4" size={32} />
+            <span className="text-gray-400">Loading territory data...</span>
           </div>
         ) : (
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
             {/* Sidebar */}
-            <div className={`w-full md:w-80 border-r p-4 flex flex-col gap-4 overflow-y-auto ${
-              darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"
-            }`}>
+            <div className="w-full md:w-80 border-r p-4 flex flex-col gap-4 overflow-y-auto bg-gray-800 border-gray-700">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-1 text-gray-300">
                   Territory Name
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`border px-3 py-2 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    darkMode 
-                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" 
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  }`}
+                  className="border px-3 py-2 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                   placeholder="Enter territory name"
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-1 text-gray-300">
                   Territory Type
                 </label>
                 <div className="flex gap-2 mt-1">
@@ -629,12 +592,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                     onClick={() => changeTerritoryType("polygon")}
                     className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center gap-1 text-sm ${
                       type === "polygon"
-                        ? darkMode
-                          ? "bg-blue-800 text-blue-100 border border-blue-700"
-                          : "bg-blue-100 text-blue-700 border border-blue-300"
-                        : darkMode
-                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-blue-800 text-blue-100 border border-blue-700"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                     }`}
                   >
                     <Square size={14} />
@@ -645,12 +604,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                     onClick={() => changeTerritoryType("radius")}
                     className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center gap-1 text-sm ${
                       type === "radius"
-                        ? darkMode
-                          ? "bg-blue-800 text-blue-100 border border-blue-700"
-                          : "bg-blue-100 text-blue-700 border border-blue-300"
-                        : darkMode
-                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        ? "bg-blue-800 text-blue-100 border border-blue-700"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                     }`}
                   >
                     <Circle size={14} />
@@ -660,7 +615,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                <label className="block text-sm font-medium mb-1 text-gray-300">
                   Color
                 </label>
                 <div className="flex items-center gap-3">
@@ -674,19 +629,17 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                         territoryShapeRef.current.setOptions({ fillColor: val, strokeColor: val });
                       }
                     }}
-                    className="h-10 w-10 rounded cursor-pointer border border-gray-300"
+                    className="h-10 w-10 rounded cursor-pointer border border-gray-600 bg-gray-700"
                   />
-                  <div className={`flex-1 flex items-center gap-2 border rounded-md px-3 py-2 ${
-                    darkMode ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"
-                  }`}>
+                  <div className="flex-1 flex items-center gap-2 border rounded-md px-3 py-2 bg-gray-700 border-gray-600">
                     <div className="h-4 w-4 rounded-sm" style={{ backgroundColor: color }}></div>
                     <span className="text-sm font-mono">{color}</span>
                   </div>
                 </div>
               </div>
 
-              <div className={`border-t pt-4 mt-2 ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
-                <h3 className={`font-medium mb-2 flex items-center gap-2 ${darkMode ? "text-gray-300" : "text-gray-800"}`}>
+              <div className="border-t pt-4 mt-2 border-gray-700">
+                <h3 className="font-medium mb-2 flex items-center gap-2 text-gray-300">
                   <Layers size={16} />
                   Territory Details
                 </h3>
@@ -694,7 +647,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                 {type === "radius" && center && (
                   <div className="space-y-3">
                     <div>
-                      <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      <label className="block text-sm font-medium mb-1 text-gray-300">
                         Radius (km)
                       </label>
                       <input
@@ -707,17 +660,11 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                           setRadius(newRadius);
                           if (territoryShapeRef.current) territoryShapeRef.current.setRadius(newRadius * 1000);
                         }}
-                        className={`border px-3 py-2 rounded-md w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          darkMode 
-                            ? "bg-gray-700 border-gray-600 text-white" 
-                            : "bg-white border-gray-300 text-gray-900"
-                        }`}
+                        className="border px-3 py-2 rounded-md w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 border-gray-600 text-white"
                       />
                     </div>
 
-                    <div className={`text-sm p-2 rounded-md ${
-                      darkMode ? "bg-blue-900 text-blue-100" : "bg-blue-50 text-blue-900"
-                    }`}>
+                    <div className="text-sm p-2 rounded-md bg-blue-900 text-blue-100">
                       <p className="font-medium">Center Coordinates</p>
                       <p>Lat: {center.lat?.toFixed?.(6)}</p>
                       <p>Lng: {center.lng?.toFixed?.(6)}</p>
@@ -726,9 +673,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                 )}
 
                 {type === "polygon" && coords.length > 0 && (
-                  <div className={`text-sm p-2 rounded-md ${
-                    darkMode ? "bg-blue-900 text-blue-100" : "bg-blue-50 text-blue-900"
-                  }`}>
+                  <div className="text-sm p-2 rounded-md bg-blue-900 text-blue-100">
                     <p className="font-medium">Polygon Details</p>
                     <p>{coords.length} points</p>
                     <p className="mt-1 text-xs opacity-75">
@@ -738,7 +683,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                 )}
               </div>
 
-              <div className="mt-auto pt-4 border-t space-y-2">
+              <div className="mt-auto pt-4 border-t space-y-2 border-gray-700">
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -746,12 +691,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                     disabled={!hasApiTerritory || !territoryShapeRef.current}
                     className={`flex-1 py-2 px-4 rounded-md flex items-center justify-center gap-1 ${
                       isEditing
-                        ? darkMode
-                          ? "bg-yellow-700 text-white hover:bg-yellow-600"
-                          : "bg-yellow-500 text-white hover:bg-yellow-600"
-                        : darkMode
-                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                          : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                        ? "bg-yellow-700 text-white hover:bg-yellow-600"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                     } ${!hasApiTerritory ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <Edit3 size={16} />
@@ -765,9 +706,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                     className={`flex-1 py-2 px-4 rounded-md flex items-center justify-center gap-1 ${
                       !isEditing 
                         ? "opacity-50 cursor-not-allowed" 
-                        : darkMode
-                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                          : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                     }`}
                   >
                     <RotateCcw size={16} />
@@ -779,11 +718,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                   type="button"
                   onClick={handleSave}
                   disabled={isSaving || !hasApiTerritory}
-                  className={`w-full py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${
-                    darkMode 
-                      ? "bg-blue-700 text-white hover:bg-blue-600" 
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
+                  className="w-full py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 bg-blue-800 text-white hover:bg-blue-700"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   {isSaving ? "Saving..." : "Save Changes"}
@@ -795,32 +730,24 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
             <div className="flex-1 relative">
               <div ref={mapRef} className="h-full w-full min-h-[500px]" />
 
-              <div className={`absolute right-4 bottom-4 flex flex-col gap-2 rounded-lg shadow-md p-2 border ${
-                darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-              }`}>
+              <div className="absolute right-4 bottom-4 flex flex-col gap-2 rounded-lg shadow-md p-2 border bg-gray-800 border-gray-700">
                 <button 
                   onClick={zoomIn} 
-                  className={`p-2 rounded-md transition-colors ${
-                    darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-100"
-                  }`} 
+                  className="p-2 rounded-md transition-colors text-gray-300 hover:bg-gray-700" 
                   title="Zoom in"
                 >
                   <ZoomIn size={18} />
                 </button>
                 <button 
                   onClick={zoomOut} 
-                  className={`p-2 rounded-md transition-colors ${
-                    darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-100"
-                  }`} 
+                  className="p-2 rounded-md transition-colors text-gray-300 hover:bg-gray-700" 
                   title="Zoom out"
                 >
                   <ZoomOut size={18} />
                 </button>
                 <button 
                   onClick={centerMap} 
-                  className={`p-2 rounded-md transition-colors ${
-                    darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-100"
-                  }`} 
+                  className="p-2 rounded-md transition-colors text-gray-300 hover:bg-gray-700" 
                   title="Recenter map"
                 >
                   <Navigation size={18} />
@@ -828,34 +755,26 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
               </div>
 
               {!scriptLoaded && (
-                <div className={`absolute inset-0 flex items-center justify-center flex-col ${
-                  darkMode ? "bg-gray-800/80 text-gray-300" : "bg-white/80 text-gray-700"
-                }`}>
-                  <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />
+                <div className="absolute inset-0 flex items-center justify-center flex-col bg-gray-800/80 text-gray-300">
+                  <Loader2 className="animate-spin text-blue-500 mb-4" size={32} />
                   <span>Loading maps...</span>
                 </div>
               )}
 
               {isEditing && (
-                <div className={`absolute top-4 left-4 p-3 rounded-lg shadow-md max-w-xs ${
-                  darkMode ? "bg-gray-800 text-gray-200 border border-gray-700" : "bg-blue-600 text-white"
-                }`}>
+                <div className="absolute top-4 left-4 p-3 rounded-lg shadow-md max-w-xs bg-gray-800 text-gray-200 border border-gray-700">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Edit3 size={16} />
                     {type === "polygon" ? "Editing Polygon" : "Editing Circle"}
                   </h4>
-                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-blue-100"}`}>
+                  <p className="text-sm text-gray-400">
                     {type === "polygon"
                       ? "Drag the points to reshape the territory. Click on a line to add new points."
                       : "Drag the center to move or drag the edge to resize the circle."}
                   </p>
                   <button 
                     onClick={toggleEdit} 
-                    className={`mt-2 text-xs px-2 py-1 rounded ${
-                      darkMode 
-                        ? "bg-gray-700 hover:bg-gray-600 text-gray-200" 
-                        : "bg-blue-700 hover:bg-blue-800 text-white"
-                    }`}
+                    className="mt-2 text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
                   >
                     Done Editing
                   </button>

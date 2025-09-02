@@ -160,6 +160,16 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                 <span className="db-nav-text">Calendar</span>
               </NavLink>
             </li>
+               <li>
+              <NavLink
+                to="/schedule1"
+                className={({ isActive }) => isActive ? 'db-active' : ''}
+                onClick={handleNavClick}
+              >
+                <FiCalendar className="db-nav-icon" />
+                <span className="db-nav-text">Schedule</span>
+              </NavLink>
+            </li>
             <li>
               <NavLink
                 to="/reports"

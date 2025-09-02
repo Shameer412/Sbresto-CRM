@@ -9,13 +9,14 @@ export const scheduleApi = createApi({
 
     // 1. Book a meeting slot for a lead
     bookLeadMeeting: builder.mutation({
-      query: ({ leadId, date, start_time, end_time }) => ({
-        url: `/leads/schedule/${leadId}/book`,
-        method: 'POST',
-        body: { date, start_time, end_time },
-      }),
-      invalidatesTags: ['Schedule'],
-    }),
+  query: ({ leadId, date, start_time, end_time, lead_id }) => ({
+    url: `/leads/schedule/${leadId}/book`,
+    method: 'POST',
+    // ab lead_id argument se aa raha hai, undefined nahi
+    body: { date, start_time, end_time, lead_id },
+  }),
+  invalidatesTags: ['Schedule'],
+}),
 
     // 2. Get available slots for a lead on a specific date
     getAvailableLeadSlots: builder.query({
