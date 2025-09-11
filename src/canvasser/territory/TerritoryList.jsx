@@ -317,22 +317,29 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
   const items = data?.items ?? [];
   const meta = data?.meta;
   const totalPages = meta?.last_page ?? 1;
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
+  
+  // Reverse pagination logic
+  const canPrev = page < totalPages; // Previous now means next higher number
+  const canNext = page > 1; // Next now means next lower number
+
+  // Navigation handlers for reverse pagination
+  const goToFirstPage = () => setPage(totalPages);
+  const goToLastPage = () => setPage(1);
+  const goToPrevPage = () => setPage(p => Math.min(totalPages, p + 1));
+  const goToNextPage = () => setPage(p => Math.max(1, p - 1));
 
   useEffect(() => { setPage(1); }, [debounced, activeFilters, sortBy, sortOrder]);
 
-  const pages = useMemo(() => {
-    const last = totalPages, current = page, delta = 2;
-    const left = current - delta, right = current + delta + 1;
-    const range = [], result = [];
-    for (let i = Math.max(2, left); i < Math.min(last, right); i++) range.push(i);
-    if (left > 2) { if (left > 3) result.push(1, -1); else result.push(1); } else { result.push(1); }
-    result.push(...range);
-    if (right < last) { if (right < last - 1) result.push(-1, last); else result.push(last); }
-    else if (last > 1) result.push(last);
-    return result;
-  }, [page, totalPages]);
+  // Generate pages in descending order
+  const descendingPages = useMemo(() => {
+    if (!totalPages) return [];
+    
+    // Create array from 1 to totalPages
+    const normalPages = Array.from({length: totalPages}, (_, i) => i + 1);
+    
+    // Reverse the array for descending order
+    return normalPages.reverse();
+  }, [totalPages, page]);
 
   const handleDelete = async (id) => {
     if (!id) return;
@@ -507,33 +514,25 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
             {/* Pagination */}
             <div className="mt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4">
               <div className="text-sm text-gray-400">
-                Showing <span className="font-medium text-gray-200">{((page - 1) * perPage) + 1}</span> to{' '}
-                <span className="font-medium text-gray-200">{Math.min(page * perPage, meta?.total ?? items.length)}</span> of{' '}
+                Showing <span className="font-medium text-gray-200">{Math.min(page * perPage, meta?.total ?? items.length)}</span> to{' '}
+                <span className="font-medium text-gray-200">{((page - 1) * perPage) + 1}</span> of{' '}
                 <span className="font-medium text-gray-200">{meta?.total ?? items.length}</span> results
               </div>
               <div className="flex items-center gap-1">
-                <Tooltip content="First page">
-                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" onClick={() => setPage(1)} disabled={!canPrev || isFetching}>
+                <Tooltip content="First page (Highest number)">
+                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" 
+                    onClick={goToFirstPage} disabled={page >= totalPages || isFetching}>
                     <ChevronsLeft className="w-4 h-4" />
                   </button>
                 </Tooltip>
-                <Tooltip content="Previous page">
-                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!canPrev || isFetching}>
+                <Tooltip content="Previous page (Higher number)">
+                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" 
+                    onClick={goToPrevPage} disabled={!canPrev || isFetching}>
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                 </Tooltip>
 
-                {(() => {
-                  const last = totalPages, current = page, delta = 2;
-                  const left = current - delta, right = current + delta + 1;
-                  const range = [], result = [];
-                  for (let i = Math.max(2, left); i < Math.min(last, right); i++) range.push(i);
-                  if (left > 2) { if (left > 3) result.push(1, -1); else result.push(1); } else { result.push(1); }
-                  result.push(...range);
-                  if (right < last) { if (right < last - 1) result.push(-1, last); else result.push(last); }
-                  else if (last > 1) result.push(last);
-                  return result;
-                })().map((p, idx) =>
+                {descendingPages.map((p, idx) =>
                   p === -1 ? (
                     <span key={idx} className="px-2 text-gray-500 select-none">…</span>
                   ) : (
@@ -553,13 +552,15 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
                   )
                 )}
 
-                <Tooltip content="Next page">
-                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={!canNext || isFetching}>
+                <Tooltip content="Next page (Lower number)">
+                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" 
+                    onClick={goToNextPage} disabled={!canNext || isFetching}>
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </Tooltip>
-                <Tooltip content="Last page">
-                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" onClick={() => setPage(totalPages)} disabled={!canNext || isFetching}>
+                <Tooltip content="Last page (1)">
+                  <button className="p-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150" 
+                    onClick={goToLastPage} disabled={page <= 1 || isFetching}>
                     <ChevronsRight className="w-4 h-4" />
                   </button>
                 </Tooltip>

@@ -21,11 +21,12 @@ const DEFAULT_COLOR = "#3B82F6";
 // Wide but sensible rectangle to cover TX and ~10–15 nearby states
 // (AZ, NM, CO, KS, MO, OK, AR, LA, MS, AL, GA, FL, TN, etc.)
 const SOUTH_CENTRAL_BOUNDS = {
-  north: 36.5,  // Northern boundary (southern Oklahoma, e.g., Oklahoma City)
-  south: 25.8,  // Southern boundary (southern Texas, e.g., Corpus Christi)
-  west: -106.5, // Western boundary (western Texas, e.g., El Paso)
-  east: -89.0,  // Eastern boundary (western Louisiana, e.g., Baton Rouge)
+  north: 30.5,    // Northern boundary (Conroe area)
+  south: 29.0,    // Southern boundary (Galveston area)
+  west: -96.5,    // Western boundary (Columbus area)
+  east: -94.5,    // Eastern boundary (Beaumont area)
 };
+
 
 const BASE_MAP_OPTIONS = {
   streetViewControl: false,

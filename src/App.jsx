@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Provider } from 'react-redux';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { store } from './app/store';
@@ -22,24 +22,36 @@ import Calender from './canvasser/calender/Calender.jsx'
 import Schedule1 from './canvasser/calender/Schedule.jsx'
 import CreateTerritory from './canvasser/territory/CreateTerritory';
 import TerritoryList from './canvasser/territory/TerritoryList.jsx';
+
+// Employee Dashboard Components
+import EmployeeLayout from './employee/dashboard/Layout';
+import EmployeeDashboard from './employee/stats/Dashboard';
+import EmployeeLeadList from './employee/leads/LeadList'; 
+import EmployeeLeadForm from './employee/leads/LeadForm';
+import EmployeeLeadDetails from './employee/leads/LeadDetails';
+import EmployeeEditLead from './employee/leads/LeadEdit';
+import EmployeeNotes from './employee/notes/Notes';
+import EmployeeStats from './employee/stats/Analytics.jsx';
+import EmployeeFollowUpList from './employee/followup/FollowUpList.jsx';
+
 const AppRoutes = () => {
-
-
   return (
     <Routes>
-     <Route path="/register/:token" element={<SignUp />} />
+      <Route path="/register/:token" element={<SignUp />} />
       <Route path="/login" element={<Login />} />
      
-       <Route
-    path="/schedule"
-    element={
-      <ProtectedRoute>
-        <Schedule />
-      </ProtectedRoute>
-    }
-  />
       <Route
-        path="/"
+        path="/schedule"
+        element={
+          <ProtectedRoute>
+            <Schedule />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Canvasser Dashboard Routes */}
+      <Route
+        path="/*"
         element={
           <ProtectedRoute>
             <Layout />
@@ -47,19 +59,40 @@ const AppRoutes = () => {
         }
       >
         <Route index element={<Navigate to="leads" />} />
-        <Route path="profile" element={<Profile />} />
         <Route path="leads" element={<Lead />} />
         <Route path="leads/add" element={<LeadForm />} />
         <Route path="leads/:id" element={<LeadDetails />} />
         <Route path="leads/:id/edit" element={<EditLead />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="analytics" element={<Analytic />} />
         <Route path="followup" element={<FollowUpList />} />
         <Route path="reports" element={<Report />} />
-          <Route path="calender" element={<Calender />} />
-            <Route path="schedule1" element={<Schedule1 />} />
-          <Route path="/createterritory" element={<CreateTerritory />} />
-           <Route path="/territories" element={<TerritoryList />} />
+        <Route path="calender" element={<Calender />} />
+        <Route path="schedule1" element={<Schedule1 />} />
+        <Route path="createterritory" element={<CreateTerritory />} />
+        <Route path="territories" element={<TerritoryList />} />
       </Route>
+      
+      {/* Employee Dashboard Routes - Completely Separate */}
+      <Route
+        path="/employee/*"
+        element={
+          <ProtectedRoute>
+            <EmployeeLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" />} />
+        <Route path="dashboard" element={<EmployeeDashboard />} />
+        <Route path="leadlist" element={<EmployeeLeadList />} /> 
+        <Route path="leadlist/add" element={<EmployeeLeadForm />} />
+        <Route path="leadlist/:id" element={<EmployeeLeadDetails />} />
+        <Route path="leadlist/:id/edit" element={<EmployeeEditLead />} />
+        <Route path="notes" element={<EmployeeNotes />} />
+        <Route path="followup/list" element={<EmployeeFollowUpList />} />
+        <Route path="stats" element={<EmployeeStats />} />
+      </Route>
+      
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
   );
