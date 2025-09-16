@@ -1,228 +1,286 @@
-import React, { useState, useEffect } from 'react';
-import { useGetLeadsQuery, useDeleteLeadMutation } from '../../features/leads/leadsApiSlice';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { DndContext, closestCenter } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useGetLeadsQuery, useDeleteLeadMutation } from '../../features/leads/leadsApiSlice'; // Assuming this path is correct
+
+// Lucide React Icons
 import {
-    Phone, Mail, Search, Plus, Edit, Trash2, MessageCircle, Flame, ArrowUp, ChevronsRight, Minus, 
-    FolderSearch, Loader2, LayoutGrid, List, CheckCircle, Radio, Clock, MoreHorizontal, ChevronLeft, ChevronRight, Users, TrendingUp
+  Phone, Mail, Filter, Eye, Search, ChevronDown, ChevronUp, Activity,
+  AlertCircle, Plus, Star, Trash2, Edit, RefreshCw, MessageCircle, Bell
 } from 'lucide-react';
 
-// --- CONFIGURATION & MOCK DATA ---
-const priorityConfig = {
-    urgent: { label: 'Urgent', icon: Flame, tag: 'bg-rose-100 text-rose-700' },
-    high: { label: 'High', icon: ArrowUp, tag: 'bg-amber-100 text-amber-700' },
-    medium: { label: 'Medium', icon: ChevronsRight, tag: 'bg-sky-100 text-sky-700' },
-    low: { label: 'Low', icon: Minus, tag: 'bg-emerald-100 text-emerald-700' },
-};
-const STATUS_COLUMNS = {
-    new: { id: 'new', title: 'New Leads' },
-    contacted: { id: 'contacted', title: 'Contacted' },
-    qualified: { id: 'qualified', title: 'Qualified' },
-};
-const getLeadStatus = (leadId) => Object.keys(STATUS_COLUMNS)[leadId % Object.keys(STATUS_COLUMNS).length];
+// Import your other components
+import ReminderModal from '../followup/ReminderModel';
+import FollowUpNotes from "../notes/Notes";
 
-// --- DASHBOARD HEADER ---
-const DashboardHeader = ({ leads, onAddLead }) => {
-    const chartData = Object.values(priorityConfig).map(p => ({
-        name: p.label,
-        count: leads.filter(l => l.priority_level === p.label.toLowerCase()).length
-    }));
-
-    return (
-        <header className="mb-8">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Leads Dashboard</h1>
-                    <p className="mt-1 text-slate-500">Welcome back! Here's your current sales pipeline status.</p>
-                </div>
-                <button onClick={onAddLead} className="inline-flex items-center gap-2 px-4 py-2 font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 active:scale-95 transition-transform">
-                    <Plus size={18} /> Add Lead
-                </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-slate-500">Total Leads</p>
-                        <Users size={20} className="text-slate-400" />
-                    </div>
-                    <p className="text-3xl font-bold text-slate-800 mt-2">{leads.length}</p>
-                </div>
-                 <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-slate-500">Urgent Leads</p>
-                        <Flame size={20} className="text-rose-500" />
-                    </div>
-                    <p className="text-3xl font-bold text-slate-800 mt-2">{chartData.find(d=>d.name==='Urgent')?.count || 0}</p>
-                </div>
-                <div className="md:col-span-2 p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <p className="text-sm font-medium text-slate-500 mb-2">Leads by Priority</p>
-                    <ResponsiveContainer width="100%" height={80}>
-                        <BarChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px'}}/>
-                            <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-        </header>
-    );
+// A helper object to map priority levels to Tailwind CSS classes
+// This is the standard way to handle dynamic classes in Tailwind
+const priorityStyles = {
+  default: {
+    border: 'border-slate-400',
+    bg: 'bg-slate-400',
+    text: 'text-slate-800',
+    tagBg: 'bg-slate-100',
+  },
+  low: {
+    border: 'border-emerald-500',
+    bg: 'bg-emerald-500',
+    text: 'text-emerald-800',
+    tagBg: 'bg-emerald-100',
+  },
+  medium: {
+    border: 'border-amber-500',
+    bg: 'bg-amber-500',
+    text: 'text-amber-800',
+    tagBg: 'bg-amber-100',
+  },
+  high: {
+    border: 'border-red-500',
+    bg: 'bg-red-500',
+    text: 'text-red-800',
+    tagBg: 'bg-red-100',
+  },
+  urgent: {
+    border: 'border-rose-600',
+    bg: 'bg-rose-600',
+    text: 'text-rose-800',
+    tagBg: 'bg-rose-100',
+  },
 };
 
-// --- KANBAN VIEW COMPONENTS ---
-const KanbanCard = ({ lead }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lead.id });
-    const style = { transform: CSS.Transform.toString(transform), transition };
-    const priority = priorityConfig[lead.priority_level?.toLowerCase()];
-    return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm touch-none">
-            <div className={`inline-flex items-center gap-1.5 font-semibold rounded-full text-xs px-2 py-0.5 mb-2 ${priority.tag}`}><priority.icon size={12} />{priority.label}</div>
-            <p className="font-semibold text-slate-800 mb-2">{lead.full_name}</p>
-            <div className="flex justify-between items-center">
-                <p className="text-xs text-slate-500 flex items-center gap-1"><Clock size={12}/>{new Date(lead.created_at).toLocaleDateString()}</p>
-                <img src={`https://i.pravatar.cc/24?u=${lead.email}`} alt="avatar" className="w-6 h-6 rounded-full"/>
+const PRIORITY_OPTIONS = ['all', 'high', 'medium', 'low', 'urgent'];
+
+// ===================================================================
+//  LEAD CARD COMPONENT (with Tailwind CSS)
+// ===================================================================
+const LeadCard = ({ lead, onView, onEdit, onDelete, onShowNotes, onReminder }) => {
+  const styles = priorityStyles[lead.priority_level?.toLowerCase()] || priorityStyles.default;
+
+  return (
+    <div className="relative bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 hover:border-blue-400">
+      {/* Priority Border */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${styles.bg}`}></div>
+
+      <div className="p-5">
+        <div className="flex justify-between items-start">
+          {/* Avatar and Name */}
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xl font-bold ${styles.bg}`}>
+              {lead.full_name ? lead.full_name.charAt(0).toUpperCase() : 'L'}
             </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">{lead.full_name || 'Unnamed Lead'}</h3>
+              <p className="text-xs text-slate-500">Added on: {new Date(lead.created_at).toLocaleDateString()}</p>
+            </div>
+          </div>
+          {/* ID Badge */}
+          <div className={`px-2 py-0.5 text-xs font-semibold text-white rounded-full ${styles.bg}`}>
+            ID: {lead.id || 'N/A'}
+          </div>
         </div>
-    );
-};
-const KanbanColumn = ({ title, leads }) => (
-    <div className="flex-1 bg-slate-100/70 p-3 rounded-xl">
-        <h3 className="font-semibold text-slate-700 px-1 mb-4">{title} <span className="text-sm text-slate-500">{leads.length}</span></h3>
-        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-3">
-                {leads.map(lead => <KanbanCard key={lead.id} lead={lead} />)}
-            </div>
-        </SortableContext>
-    </div>
-);
-const KanbanView = ({ leadsByStatus, onDragEnd }) => (
-    <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <div className="flex gap-6">
-            {Object.values(STATUS_COLUMNS).map(col => (
-                <KanbanColumn key={col.id} title={col.title} leads={leadsByStatus[col.id] || []} />
+
+        {/* Contact Info */}
+        <div className="mt-6 space-y-3 text-sm">
+          <div className="flex items-center gap-3 text-slate-600">
+            <Mail size={16} className="text-slate-400" />
+            <span>{lead.email || 'No email provided'}</span>
+          </div>
+          <div className="flex items-center gap-3 text-slate-600">
+            <Phone size={16} className="text-slate-400" />
+            <span>{lead.phone || 'No phone provided'}</span>
+          </div>
+        </div>
+
+        {/* Footer: Priority Tag & Actions */}
+        <div className="mt-6 pt-4 border-t border-slate-200 flex justify-between items-center">
+          <span className={`px-3 py-1 text-xs font-medium rounded-full capitalize ${styles.tagBg} ${styles.text}`}>
+            {lead.priority_level || 'No Priority'}
+          </span>
+
+          <div className="flex items-center gap-1">
+            {[
+              { icon: Eye, action: () => onView(lead), tooltip: 'View' },
+              { icon: Edit, action: () => onEdit(lead), tooltip: 'Edit' },
+              { icon: MessageCircle, action: () => onShowNotes(lead), tooltip: 'Notes', count: lead.notes_count },
+              { icon: Bell, action: () => onReminder(lead), tooltip: 'Reminder', count: lead.follow_ups_count },
+              { icon: Trash2, action: () => onDelete(lead), tooltip: 'Delete', danger: true },
+            ].map((btn, index) => (
+              <button
+                key={index}
+                onClick={btn.action}
+                title={btn.tooltip}
+                className={`relative p-2 rounded-full transition-colors ${btn.danger ? 'hover:bg-red-100 hover:text-red-600' : 'hover:bg-blue-50 hover:text-blue-600'} text-slate-500`}
+              >
+                <btn.icon size={18} />
+                {btn.count > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
+                    {btn.count}
+                  </span>
+                )}
+              </button>
             ))}
+          </div>
         </div>
-    </DndContext>
-);
-
-// --- LIST VIEW & PAGINATION ---
-const ListView = ({ leads }) => { /* ... similar to previous list view ... */ };
-const Pagination = ({ currentPage, totalPages, onPageChange }) => (
-    <div className="flex justify-center items-center gap-2 mt-8">
-        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 disabled:opacity-50 hover:bg-slate-100 flex items-center gap-1"><ChevronLeft size={16}/> Previous</button>
-        <span className="px-4 py-2 text-sm text-slate-600">Page {currentPage} of {totalPages}</span>
-        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 disabled:opacity-50 hover:bg-slate-100 flex items-center gap-1">Next <ChevronRight size={16}/></button>
+      </div>
     </div>
-);
+  );
+};
 
-// --- MAIN DASHBOARD ---
+// ===================================================================
+//  MAIN DASHBOARD COMPONENT (with Tailwind CSS)
+// ===================================================================
 const LeadsDashboard = () => {
-    const navigate = useNavigate();
-    const [view, setView] = useState('kanban');
-    const [leads, setLeads] = useState([]);
-    const [leadsByStatus, setLeadsByStatus] = useState({});
-    
-    // RTK Query Fetching
-    const { data: apiData, isLoading } = useGetLeadsQuery({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [reminderModalLeadId, setReminderModalLeadId] = useState(null);
+  const [notesLeadId, setNotesLeadId] = useState(null);
 
-    // Populate local state once data is fetched
-    useEffect(() => {
-        if (apiData?.data) {
-            const initialLeads = apiData.data.map(lead => ({
-                ...lead,
-                status: getLeadStatus(lead.id) // Assign mock status
-            }));
-            setLeads(initialLeads);
-        }
-    }, [apiData]);
+  const navigate = useNavigate();
+  const [deleteLead, { isLoading: isDeleting }] = useDeleteLeadMutation();
+  const { data, isLoading, isError, error, refetch } = useGetLeadsQuery({ page, filter: searchTerm.trim() || undefined });
 
-    // Group leads for Kanban view whenever local leads state changes
-    useEffect(() => {
-        const grouped = leads.reduce((acc, lead) => {
-            const status = lead.status || 'new';
-            if (!acc[status]) acc[status] = [];
-            acc[status].push(lead);
-            return acc;
-        }, {});
-        setLeadsByStatus(grouped);
-    }, [leads]);
+  const leads = (data?.data ?? []).filter(lead =>
+    selectedPriority === 'all' || (lead.priority_level?.toLowerCase() === selectedPriority)
+  );
+  const totalPages = data?.last_page || 1;
 
-    const handleDragEnd = (event) => {
-        const { active, over } = event;
-        if (!over) return;
+  const handleDeleteLead = async (lead) => {
+    if (window.confirm(`Are you sure you want to delete ${lead.full_name || 'this lead'}?`)) {
+      try {
+        await deleteLead(lead.id).unwrap();
+        refetch();
+      } catch (err) {
+        console.error('Failed to delete lead:', err);
+        alert('Failed to delete lead.');
+      }
+    }
+  };
 
-        const activeLeadId = active.id;
-        const overColumnId = over.id;
-        
-        // Find which column the lead was in
-        const activeColumnId = leads.find(l => l.id === activeLeadId)?.status;
-
-        if (activeColumnId !== overColumnId) {
-            setLeads(prev => prev.map(lead => 
-                lead.id === activeLeadId ? { ...lead, status: overColumnId } : lead
-            ));
-        }
-    };
-    
-    if (isLoading) return <div className="flex justify-center items-center h-screen"><Loader2 className="w-12 h-12 animate-spin text-indigo-500" /></div>;
-
+  // RENDER STATES (Loading, Error)
+  if (isLoading) {
     return (
-        <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Main Content */}
-                <div className="lg:col-span-3">
-                    <DashboardHeader leads={leads} onAddLead={() => navigate('/leadlist/add')} />
-                    
-                    {/* View Controls */}
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center bg-slate-200/80 rounded-lg p-1">
-                            <button onClick={() => setView('kanban')} className={`px-3 py-1.5 text-sm font-semibold rounded-md flex items-center gap-2 transition-colors ${view === 'kanban' ? 'bg-white shadow text-indigo-600' : 'text-slate-600 hover:text-slate-900'}`}><LayoutGrid size={16}/>Board</button>
-                            <button onClick={() => setView('list')} className={`px-3 py-1.5 text-sm font-semibold rounded-md flex items-center gap-2 transition-colors ${view === 'list' ? 'bg-white shadow text-indigo-600' : 'text-slate-600 hover:text-slate-900'}`}><List size={16}/>List</button>
-                        </div>
-                        {/* Filters could go here */}
-                    </div>
-
-                    {/* Content Views */}
-                    {view === 'kanban' && <KanbanView leadsByStatus={leadsByStatus} onDragEnd={handleDragEnd} />}
-                    {view === 'list' && (
-                        <>
-                           {/* Replace this with your existing ListView component, passing a paginated slice of `leads` */}
-                           <div className="bg-white p-4 rounded-xl border border-slate-200">List view and pagination would go here.</div>
-                           <Pagination currentPage={1} totalPages={10} onPageChange={()=>{}} />
-                        </>
-                    )}
-                </div>
-
-                {/* Right Sidebar */}
-                <aside className="lg:col-span-1">
-                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm sticky top-8">
-                        <h3 className="font-semibold text-slate-800 mb-4">Activity Feed</h3>
-                        <div className="space-y-4">
-                            {/* Placeholder for activity items */}
-                            <div className="flex gap-3">
-                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center"><CheckCircle size={20} className="text-emerald-600"/></div>
-                                <div>
-                                    <p className="text-sm font-medium text-slate-700">You qualified "TechCorp Inc."</p>
-                                    <p className="text-xs text-slate-500">12 minutes ago</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center"><MessageCircle size={20} className="text-sky-600"/></div>
-                                <div>
-                                    <p className="text-sm font-medium text-slate-700">Note added to "Innovate LLC"</p>
-                                    <p className="text-xs text-slate-500">45 minutes ago</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </aside>
-            </div>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white text-slate-600">
+        <Activity className="animate-spin text-blue-500" size={48} />
+        <p className="mt-4 text-lg">Loading your leads...</p>
+      </div>
     );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
+        <div className="bg-white p-8 rounded-xl shadow-lg text-center border border-slate-200">
+          <AlertCircle size={48} className="mx-auto text-red-500" />
+          <h3 className="mt-4 text-2xl font-bold text-slate-800">Error Loading Data</h3>
+          <p className="mt-2 text-slate-500">{error?.toString() || 'An unknown error occurred'}</p>
+          <button onClick={refetch} className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition-colors">
+            <RefreshCw size={16} /> Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // MAIN RENDER
+  return (
+    <div className="bg-white min-h-screen font-sans">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Lead Management</h1>
+            <p className="mt-1 text-slate-500">Showing {leads.length} of {data?.total || 0} leads found</p>
+          </div>
+          <button onClick={() => navigate('/employee/leadlist/add')} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <Plus size={18} /> Add New Lead
+          </button>
+        </div>
+
+        {/* Search and Filter Controls */}
+        <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
+          <div className="relative w-full md:flex-grow">
+            <Search size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name, email, or phone..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            />
+          </div>
+          <button onClick={() => setShowFilters(!showFilters)} className="w-full md:w-auto flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+            <Filter size={16} />
+            <span>Filters</span>
+            {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+
+        {/* Expanded Filters */}
+        {showFilters && (
+          <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 shadow-sm">
+            <div className="flex items-center gap-x-6 gap-y-2 flex-wrap">
+                <label className="font-semibold text-slate-600">Priority:</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                {PRIORITY_OPTIONS.map(option => (
+                    <button
+                        key={option}
+                        onClick={() => setSelectedPriority(option)}
+                        className={`px-3 py-1 text-sm font-medium rounded-full capitalize border transition-colors ${selectedPriority === option ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+                    >
+                        {option}
+                    </button>
+                ))}
+                </div>
+            </div>
+          </div>
+        )}
+
+        {/* Leads Grid or Empty State */}
+        {leads.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {leads.map(lead => (
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                onView={(l) => navigate(`/employee/leadlist/${l.id}`)}
+                onEdit={(l) => navigate(`/employee/leadlist/${l.id}/edit`)}
+                onDelete={handleDeleteLead}
+                onShowNotes={(l) => setNotesLeadId(l.id)}
+                onReminder={(l) => setReminderModalLeadId(l.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center bg-white border-2 border-dashed border-slate-300 rounded-xl p-12">
+              <Search size={48} className="mx-auto text-slate-400" />
+              <h3 className="mt-4 text-xl font-bold text-slate-800">No Leads Found</h3>
+              <p className="mt-2 text-slate-500">Try adjusting your search or filters, or add a new lead.</p>
+          </div>
+        )}
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+            <div className="mt-10 flex flex-col md:flex-row justify-between items-center gap-4">
+                <p className="text-sm text-slate-600">Page {page} of {totalPages}</p>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setPage(1)} disabled={page === 1} className="px-3 py-1 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">First</button>
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                    <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="px-3 py-1 text-sm font-semibold rounded-md border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">Last</button>
+                </div>
+            </div>
+        )}
+      </main>
+
+      {/* Modals */}
+      {reminderModalLeadId && <ReminderModal leadId={reminderModalLeadId} onClose={() => setReminderModalLeadId(null)} onSuccess={() => setReminderModalLeadId(null)} />}
+      {notesLeadId && <FollowUpNotes leadId={notesLeadId} onClose={() => setNotesLeadId(null)} />}
+    </div>
+  );
 };
 
 export default LeadsDashboard;

@@ -1,4 +1,3 @@
-// src/employee/dashboard/Header.jsx
 import React from 'react';
 import { FiLogOut, FiMenu } from 'react-icons/fi';
 import { FaUserCircle } from 'react-icons/fa';
@@ -7,8 +6,19 @@ import { useNavigate } from 'react-router-dom';
 const EmployeeHeader = ({ toggleSidebar }) => {
   const navigate = useNavigate();
 
+  // --- Profile Button Handler ---
+  const handleProfile = () => {
+    // navigate to employee profile page
+    navigate('/employee/profile/view');
+  };
+
+  // --- Logout Handler ---
   const handleLogout = () => {
-    // Add your logout logic here (clear tokens, etc.)
+    // 🔐 clear authentication info (adjust to your auth method)
+    localStorage.removeItem('authToken');
+    sessionStorage.removeItem('authToken');
+
+    // redirect to login page
     navigate('/login');
   };
 
@@ -17,9 +27,10 @@ const EmployeeHeader = ({ toggleSidebar }) => {
       <div className="flex justify-between items-center">
         {/* LEFT SIDE */}
         <div className="flex items-center">
-          <button 
-            onClick={toggleSidebar} 
+          <button
+            onClick={toggleSidebar}
             className="text-gray-600 hover:text-blue-500 mr-4 lg:hidden"
+            aria-label="Toggle sidebar"
           >
             <FiMenu size={24} />
           </button>
@@ -30,12 +41,22 @@ const EmployeeHeader = ({ toggleSidebar }) => {
 
         {/* RIGHT SIDE */}
         <div className="flex items-center gap-4">
-          <button className="text-gray-600 hover:text-blue-500 text-2xl">
+          {/* Profile Button */}
+          <button
+            onClick={handleProfile}
+            className="text-gray-600 hover:text-blue-500 text-2xl transition-colors"
+            aria-label="Profile"
+          >
             <FaUserCircle />
           </button>
-          <button 
+
+          {/* Logout Button */}
+          <button
             onClick={handleLogout}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-red-100 text-gray-700 hover:text-red-600 py-2 px-4 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-gray-100 hover:bg-red-100 
+                       text-gray-700 hover:text-red-600 py-2 px-4 rounded-lg 
+                       transition-colors"
+            aria-label="Logout"
           >
             <FiLogOut />
             <span className="hidden sm:block">Logout</span>

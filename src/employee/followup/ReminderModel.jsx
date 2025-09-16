@@ -127,56 +127,56 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="relative w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200">
         {/* Close button */}
         <button
           onClick={onClose}
           disabled={isSubmitting}
-          className="absolute top-4 right-4 z-10 text-gray-300 hover:text-white transition-colors"
+          className="absolute top-4 right-4 z-10 text-gray-500 hover:text-gray-700 transition-colors p-1.5 rounded-full hover:bg-gray-100"
         >
           <FiX className="w-5 h-5" />
         </button>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 border-b border-gray-700">
-          <h3 className="text-lg font-semibold text-white">
+        <div className="bg-blue-600 p-5 border-b border-blue-700">
+          <h3 className="text-xl font-semibold text-white">
             Schedule Follow-Up
           </h3>
           {leadId && (
-            <p className="text-xs text-gray-400 mt-1">
-              Lead ID: <span className="font-medium text-gray-300">{leadId}</span>
+            <p className="text-sm text-blue-100 mt-1">
+              Lead ID: <span className="font-medium text-white">{leadId}</span>
             </p>
           )}
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Salesperson */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
-              <FiUser className="mr-2" /> Salesperson
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <FiUser className="mr-2 text-blue-600" /> Salesperson
             </label>
             <select
               name="saleMan"
-              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+              className={`w-full px-4 py-3 text-sm rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 formErrors.saleMan 
-                  ? 'bg-gray-700 border-red-500 text-white' 
-                  : 'bg-gray-700 border-gray-600 text-white'
+                  ? 'bg-red-50 border-red-500 text-gray-900' 
+                  : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'
               }`}
               value={formData.saleMan}
               onChange={handleChange}
               disabled={loadingUsers || isSubmitting}
             >
-              <option value="" className="bg-gray-800">Select Salesperson</option>
+              <option value="" className="bg-white">Select Salesperson</option>
               {salesUsers.map((user) => (
-                <option key={user.id} value={user.id} className="bg-gray-800">
+                <option key={user.id} value={user.id} className="bg-white">
                   {user.name}
                 </option>
               ))}
             </select>
             {formErrors.saleMan && (
-              <p className="mt-1 text-xs text-red-400 flex items-center">
+              <p className="mt-2 text-xs text-red-600 flex items-center">
                 <FiInfo className="mr-1" /> {formErrors.saleMan}
               </p>
             )}
@@ -184,16 +184,16 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
 
           {/* Date Picker */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
-              <FiCalendar className="mr-2" /> Follow-Up Date
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <FiCalendar className="mr-2 text-blue-600" /> Follow-Up Date
             </label>
             <input
               type="date"
               name="followUpDate"
-              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+              className={`w-full px-4 py-3 text-sm rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 formErrors.followUpDate 
-                  ? 'bg-gray-700 border-red-500 text-white' 
-                  : 'bg-gray-700 border-gray-600 text-white'
+                  ? 'bg-red-50 border-red-500 text-gray-900' 
+                  : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'
               }`}
               value={formData.followUpDate}
               min={minDateString}
@@ -201,7 +201,7 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
               disabled={isSubmitting}
             />
             {formErrors.followUpDate && (
-              <p className="mt-1 text-xs text-red-400 flex items-center">
+              <p className="mt-2 text-xs text-red-600 flex items-center">
                 <FiInfo className="mr-1" /> {formErrors.followUpDate}
               </p>
             )}
@@ -209,32 +209,32 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
 
           {/* Time Slot */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
-              <FiClock className="mr-2" /> Time Slot
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <FiClock className="mr-2 text-blue-600" /> Time Slot
             </label>
             
             {fetchingSlots && (
-              <div className="flex items-center justify-center p-3 text-sm text-gray-400 bg-gray-700 rounded-lg border border-gray-600">
-                <FiRefreshCw className="animate-spin mr-2" /> Loading available slots...
+              <div className="flex items-center justify-center p-4 text-sm text-gray-600 bg-gray-50 rounded-lg border border-gray-300">
+                <FiRefreshCw className="animate-spin mr-2 text-blue-600" /> Loading available slots...
               </div>
             )}
             
             {!fetchingSlots && formData.saleMan && formData.followUpDate && slots.length === 0 && (
-              <div className="p-3 text-sm text-gray-400 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="p-4 text-sm text-gray-600 bg-gray-50 rounded-lg border border-gray-300">
                 No available slots for selected date
               </div>
             )}
             
             {!fetchingSlots && slots.length > 0 && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {slots.map((slot) => (
                   <button
                     key={slot.id}
                     type="button"
-                    className={`p-2 text-sm rounded-lg border transition-all ${
+                    className={`p-3 text-sm font-medium rounded-lg border transition-all ${
                       formData.slotId === slot.id
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-300'
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                        : 'bg-white border-gray-300 hover:border-blue-400 text-gray-700 hover:bg-blue-50'
                     }`}
                     onClick={() => handleChange({ target: { name: 'slotId', value: slot.id }})}
                     disabled={isSubmitting}
@@ -245,7 +245,7 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
               </div>
             )}
             {formErrors.slotId && (
-              <p className="mt-1 text-xs text-red-400 flex items-center">
+              <p className="mt-2 text-xs text-red-600 flex items-center">
                 <FiInfo className="mr-1" /> {formErrors.slotId}
               </p>
             )}
@@ -253,15 +253,15 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center">
-              <FiEdit2 className="mr-2" /> Notes
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <FiEdit2 className="mr-2 text-blue-600" /> Notes
             </label>
             <textarea
               name="note"
-              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+              className={`w-full px-4 py-3 text-sm rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 formErrors.note 
-                  ? 'bg-gray-700 border-red-500 text-white' 
-                  : 'bg-gray-700 border-gray-600 text-white'
+                  ? 'bg-red-50 border-red-500 text-gray-900' 
+                  : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'
               }`}
               rows={3}
               value={formData.note}
@@ -270,7 +270,7 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
               disabled={isSubmitting}
             />
             {formErrors.note && (
-              <p className="mt-1 text-xs text-red-400 flex items-center">
+              <p className="mt-2 text-xs text-red-600 flex items-center">
                 <FiInfo className="mr-1" /> {formErrors.note}
               </p>
             )}
@@ -278,12 +278,12 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Status
             </label>
             <select
               name="status"
-              className={`w-full px-3 py-2 text-sm rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${
+              className={`w-full px-4 py-3 text-sm rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 getStatusColor()
               }`}
               value={formData.status}
@@ -297,10 +297,10 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end pt-4 space-x-3">
+          <div className="flex justify-end pt-2 space-x-3">
             <button
               type="button"
-              className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 transition-all"
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50 transition-all shadow-sm"
               onClick={onClose}
               disabled={isSubmitting}
             >
@@ -308,7 +308,7 @@ const ReminderModal = ({ leadId, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 transition-all flex items-center justify-center min-w-[100px]"
+              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-all flex items-center justify-center min-w-[120px] shadow-sm"
               disabled={isSubmitting || !leadId}
             >
               {isSubmitting ? (

@@ -33,6 +33,10 @@ import EmployeeEditLead from './employee/leads/LeadEdit';
 import EmployeeNotes from './employee/notes/Notes';
 import EmployeeStats from './employee/stats/Analytics.jsx';
 import EmployeeFollowUpList from './employee/followup/FollowUpList.jsx';
+import EmployeeProfile from './employee/profile/Profile.jsx';
+import EmployeeCalender from './employee/calender/Calender.jsx';
+import EmployeeSchedule from './employee/calender/Schedule.jsx';
+import EmployeeTerritoryList from './employee/map/TerritoryList.jsx';
 
 const AppRoutes = () => {
   return (
@@ -91,6 +95,12 @@ const AppRoutes = () => {
         <Route path="notes" element={<EmployeeNotes />} />
         <Route path="followup/list" element={<EmployeeFollowUpList />} />
         <Route path="stats" element={<EmployeeStats />} />
+        <Route path="profile/view" element={<EmployeeProfile />} />
+        <Route path="meeting/calender" element={<EmployeeCalender />} />
+        <Route path="meeting/schedule" element={<EmployeeSchedule />} />
+        <Route path="territory/list" element={<EmployeeTerritoryList />} />
+          
+
       </Route>
       
       <Route path="*" element={<Navigate to="/login" />} />

@@ -123,26 +123,26 @@ const FollowUpList = () => {
     const base = "px-2 py-1 text-xs rounded-full flex items-center";
     switch (status?.toLowerCase()) {
       case "completed":
-        return `${base} bg-green-900/20 text-green-400 border border-green-800`;
+        return `${base} bg-green-100 text-green-800 border border-green-300`;
       case "pending":
-        return `${base} bg-yellow-900/20 text-yellow-400 border border-yellow-800`;
+        return `${base} bg-yellow-100 text-yellow-800 border border-yellow-300`;
       case "rescheduled":
-        return `${base} bg-blue-900/20 text-blue-400 border border-blue-800`;
+        return `${base} bg-blue-100 text-blue-800 border border-blue-300`;
       case "missed":
-        return `${base} bg-red-900/20 text-red-400 border border-red-800`;
+        return `${base} bg-red-100 text-red-800 border border-red-300`;
       default:
-        return `${base} bg-gray-800/20 text-gray-300 border border-gray-700`;
+        return `${base} bg-gray-100 text-gray-800 border border-gray-300`;
     }
   };
 
   const getStatusIcon = (status) => {
     const className = "w-3 h-3 mr-1.5";
     switch (status?.toLowerCase()) {
-      case "completed": return <CheckCircle className={className} />;
-      case "pending": return <Clock className={`${className} animate-pulse`} />;
-      case "rescheduled": return <RefreshCw className={className} />;
-      case "missed": return <AlertCircle className={className} />;
-      default: return <Circle className={className} />;
+      case "completed": return <CheckCircle className={`${className} text-green-600`} />;
+      case "pending": return <Clock className={`${className} text-yellow-600 animate-pulse`} />;
+      case "rescheduled": return <RefreshCw className={`${className} text-blue-600`} />;
+      case "missed": return <AlertCircle className={`${className} text-red-600`} />;
+      default: return <Circle className={`${className} text-gray-600`} />;
     }
   };
 
@@ -170,31 +170,31 @@ const FollowUpList = () => {
   // UI block until user loaded
   if (isUserLoading || !userId) {
     return (
-      <div className="flex justify-center items-center min-h-[40vh] text-gray-400 text-lg">
+      <div className="flex justify-center items-center min-h-[40vh] text-gray-600 text-lg">
         Loading user info...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
+    <div className="min-h-screen bg-white p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Follow Up Management
             </h1>
-            <p className="text-gray-400 mt-1 sm:mt-2">
+            <p className="text-gray-600 mt-1 sm:mt-2">
               Track and manage your customer follow-ups
             </p>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               onClick={() => refetch()}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg border border-gray-300 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''} text-gray-600`} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
@@ -203,90 +203,90 @@ const FollowUpList = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Follow-ups */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-indigo-500 group">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 transition-all hover:border-blue-500 group">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-400">Total Follow-ups</p>
-                <h3 className="text-2xl font-bold mt-1 text-white">{total}</h3>
+                <p className="text-sm font-medium text-gray-600">Total Follow-ups</p>
+                <h3 className="text-2xl font-bold mt-1 text-gray-900">{total}</h3>
               </div>
-              <div className="p-2 rounded-lg bg-gray-700/50 group-hover:bg-indigo-500/20 transition-colors">
-                <NotebookText className="w-5 h-5 text-gray-400 group-hover:text-indigo-400" />
+              <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-blue-100 transition-colors">
+                <NotebookText className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
-              <span className="text-xs text-gray-400">All statuses</span>
+            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
+              <span className="text-xs text-gray-500">All statuses</span>
               <button 
                 onClick={() => setStatusFilter("all")}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs text-blue-600 hover:text-blue-700"
               >
                 View all
               </button>
             </div>
           </div>
           {/* Pending */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-yellow-500 group">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 transition-all hover:border-yellow-500 group">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-400">Pending</p>
-                <h3 className="text-2xl font-bold mt-1 text-yellow-400">
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <h3 className="text-2xl font-bold mt-1 text-yellow-600">
                   {statusCounts.pending || 0}
                 </h3>
               </div>
-              <div className="p-2 rounded-lg bg-gray-700/50 group-hover:bg-yellow-500/20 transition-colors">
-                <Clock className="w-5 h-5 text-yellow-400/80 group-hover:text-yellow-400" />
+              <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-yellow-100 transition-colors">
+                <Clock className="w-5 h-5 text-yellow-600 group-hover:text-yellow-700" />
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
-              <span className="text-xs text-gray-400">Awaiting action</span>
+            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
+              <span className="text-xs text-gray-500">Awaiting action</span>
               <button 
                 onClick={() => setStatusFilter("pending")}
-                className="text-xs text-yellow-400 hover:text-yellow-300"
+                className="text-xs text-yellow-600 hover:text-yellow-700"
               >
                 View pending
               </button>
             </div>
           </div>
           {/* Completed */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-green-500 group">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 transition-all hover:border-green-500 group">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-400">Completed</p>
-                <h3 className="text-2xl font-bold mt-1 text-green-400">
+                <p className="text-sm font-medium text-gray-600">Completed</p>
+                <h3 className="text-2xl font-bold mt-1 text-green-600">
                   {statusCounts.completed || 0}
                 </h3>
               </div>
-              <div className="p-2 rounded-lg bg-gray-700/50 group-hover:bg-green-500/20 transition-colors">
-                <CheckCircle className="w-5 h-5 text-green-400 group-hover:text-green-400" />
+              <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-green-100 transition-colors">
+                <CheckCircle className="w-5 h-5 text-green-600 group-hover:text-green-700" />
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
-              <span className="text-xs text-gray-400">Successful follow-ups</span>
+            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
+              <span className="text-xs text-gray-500">Successful follow-ups</span>
               <button 
                 onClick={() => setStatusFilter("completed")}
-                className="text-xs text-green-400 hover:text-green-300"
+                className="text-xs text-green-600 hover:text-green-700"
               >
                 View completed
               </button>
             </div>
           </div>
           {/* Rescheduled */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 p-4 rounded-xl shadow-sm border border-gray-700 transition-all hover:border-blue-500 group">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 transition-all hover:border-blue-500 group">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-400">Rescheduled</p>
-                <h3 className="text-2xl font-bold mt-1 text-blue-400">
+                <p className="text-sm font-medium text-gray-600">Rescheduled</p>
+                <h3 className="text-2xl font-bold mt-1 text-blue-600">
                   {statusCounts.rescheduled || 0}
                 </h3>
               </div>
-              <div className="p-2 rounded-lg bg-gray-700/50 group-hover:bg-blue-500/20 transition-colors">
-                <RefreshCw className="w-5 h-5 text-blue-400 group-hover:text-blue-400" />
+              <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-blue-100 transition-colors">
+                <RefreshCw className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between">
-              <span className="text-xs text-gray-400">Postponed follow-ups</span>
+            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
+              <span className="text-xs text-gray-500">Postponed follow-ups</span>
               <button 
                 onClick={() => setStatusFilter("rescheduled")}
-                className="text-xs text-blue-400 hover:text-blue-300"
+                className="text-xs text-blue-600 hover:text-blue-700"
               >
                 View rescheduled
               </button>
@@ -296,16 +296,16 @@ const FollowUpList = () => {
 
         {/* PAGINATION Top */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-gray-600">
             Showing page {currentPage} of {lastPage} • {total} total items
           </div>
           <div className="flex items-center gap-2">
             <button
-              className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === 1 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+              className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
               onClick={handlePrev}
               disabled={currentPage === 1 || isLoading || !userId}
             >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+              <ChevronLeft className="w-4 h-4 mr-1 text-gray-600" /> Prev
             </button>
             <div className="flex items-center gap-1">
               {Array.from({ length: Math.min(5, lastPage) }, (_, i) => {
@@ -323,7 +323,7 @@ const FollowUpList = () => {
                   <button
                     key={pageNum}
                     onClick={() => handlePageClick(pageNum)}
-                    className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === pageNum ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                    className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === pageNum ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
                     disabled={isLoading || !userId}
                   >
                     {pageNum}
@@ -335,7 +335,7 @@ const FollowUpList = () => {
                   <span className="px-2 text-gray-500">...</span>
                   <button
                     onClick={() => handlePageClick(lastPage)}
-                    className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                    className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
                     disabled={isLoading || !userId}
                   >
                     {lastPage}
@@ -344,11 +344,11 @@ const FollowUpList = () => {
               )}
             </div>
             <button
-              className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === lastPage ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+              className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === lastPage ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
               onClick={handleNext}
               disabled={currentPage === lastPage || isLoading || !userId}
             >
-              Next <ChevronRight className="w-4 h-4 ml-1" />
+              Next <ChevronRight className="w-4 h-4 ml-1 text-gray-600" />
             </button>
           </div>
         </div>
@@ -356,23 +356,23 @@ const FollowUpList = () => {
         {/* Content */}
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
           </div>
         ) : followUps.length > 0 ? (
           <div className="space-y-3">
             {followUps.map(fu => (
               <div
                 key={fu.id}
-                className={`bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-700 transition-all duration-200 hover:shadow-md ${expandedCard === fu.id ? 'ring-2 ring-indigo-500/50' : ''}`}
+                className={`bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 transition-all duration-200 hover:shadow-md ${expandedCard === fu.id ? 'ring-2 ring-blue-500/50' : ''}`}
               >
                 {editId === fu.id ? (
                   <div className="p-4 sm:p-6">
-                    <h3 className="text-lg font-medium text-white mb-4">Edit Follow-up</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Follow-up</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
                         <select
-                          className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white transition-colors"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 transition-colors"
                           value={editFields.status}
                           onChange={(e) => setEditFields({ ...editFields, status: e.target.value })}
                           disabled={updating}
@@ -384,10 +384,10 @@ const FollowUpList = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">Date</label>
                         <input
                           type="date"
-                          className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white transition-colors"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 transition-colors"
                           value={editFields.follow_up_date}
                           onChange={(e) => setEditFields({ ...editFields, follow_up_date: e.target.value })}
                           disabled={updating}
@@ -395,9 +395,9 @@ const FollowUpList = () => {
                       </div>
                     </div>
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Notes</label>
                       <textarea
-                        className="w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white transition-colors"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 transition-colors"
                         rows="3"
                         value={editFields.note}
                         onChange={(e) => setEditFields({ ...editFields, note: e.target.value })}
@@ -407,14 +407,14 @@ const FollowUpList = () => {
                     </div>
                     <div className="flex flex-col sm:flex-row justify-end gap-3">
                       <button
-                        className="px-4 py-2 border border-gray-700 rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-900 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                         onClick={cancelEdit}
                         disabled={updating}
                       >
                         Cancel
                       </button>
                       <button
-                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                         onClick={() => saveEdit(fu.id)}
                         disabled={updating}
                       >
@@ -430,7 +430,7 @@ const FollowUpList = () => {
                 ) : (
                   <>
                     <div
-                      className="p-4 cursor-pointer flex justify-between items-center hover:bg-gray-700/50 transition-colors"
+                      className="p-4 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition-colors"
                       onClick={() => toggleExpand(fu.id)}
                     >
                       <div className="flex items-center gap-3 sm:gap-4">
@@ -438,11 +438,11 @@ const FollowUpList = () => {
                           {getStatusIcon(fu.status)}
                         </div>
                         <div>
-                          <h3 className="font-medium text-white text-sm sm:text-base">
+                          <h3 className="font-medium text-gray-900 text-sm sm:text-base">
                             Lead #{fu.lead_id || "N/A"}
                           </h3>
-                          <p className="text-xs sm:text-sm text-gray-400 flex items-center mt-1">
-                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          <p className="text-xs sm:text-sm text-gray-600 flex items-center mt-1">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-gray-600" />
                             {formatDate(fu.follow_up_date)}
                           </p>
                         </div>
@@ -453,31 +453,31 @@ const FollowUpList = () => {
                           {fu.status || "N/A"}
                         </span>
                         {expandedCard === fu.id ? (
-                          <ChevronUp className="w-5 h-5 text-gray-500" />
+                          <ChevronUp className="w-5 h-5 text-gray-600" />
                         ) : (
-                          <ChevronDown className="w-5 h-5 text-gray-500" />
+                          <ChevronDown className="w-5 h-5 text-gray-600" />
                         )}
                       </div>
                     </div>
                     {expandedCard === fu.id && (
-                      <div className="px-4 pb-4 border-t border-gray-700">
+                      <div className="px-4 pb-4 border-t border-gray-200">
                         <div className="mt-4">
-                          <h4 className="text-xs sm:text-sm font-medium text-gray-300 flex items-center mb-2">
-                            <NotebookText className="w-4 h-4 mr-2" /> Notes
+                          <h4 className="text-xs sm:text-sm font-medium text-gray-600 flex items-center mb-2">
+                            <NotebookText className="w-4 h-4 mr-2 text-gray-600" /> Notes
                           </h4>
-                          <p className="text-xs sm:text-sm text-gray-300 bg-gray-700/50 p-3 rounded-md">
+                          <p className="text-xs sm:text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
                             {fu.note || "No notes available for this follow-up."}
                           </p>
                         </div>
                         <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
                           <button
-                            className="px-3 py-1.5 text-xs sm:text-sm border border-gray-700 rounded-md text-gray-300 hover:bg-gray-700 flex items-center justify-center transition-colors"
+                            className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md text-gray-900 hover:bg-gray-200 flex items-center justify-center transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
                               startEdit(fu);
                             }}
                           >
-                            <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> Edit
+                            <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-gray-600" /> Edit
                           </button>
                           <button
                             className="px-3 py-1.5 text-xs sm:text-sm border border-transparent rounded-md text-white bg-red-600 hover:bg-red-700 flex items-center justify-center transition-colors"
@@ -499,16 +499,16 @@ const FollowUpList = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-800 rounded-xl shadow-sm border border-dashed border-gray-700">
+          <div className="text-center py-12 bg-gray-50 rounded-xl shadow-sm border border-dashed border-gray-300">
             <NotebookText className="mx-auto h-12 w-12 text-gray-500" />
-            <h3 className="mt-2 text-lg font-medium text-white">No follow-ups found</h3>
-            <p className="mt-1 text-sm text-gray-400">
+            <h3 className="mt-2 text-lg font-medium text-gray-900">No follow-ups found</h3>
+            <p className="mt-1 text-sm text-gray-600">
               {statusFilter !== "all"
                 ? "No follow-ups match your filter criteria"
                 : "You don't have any follow-ups yet"}
             </p>
             <button
-              className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 mx-auto transition-colors"
+              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 mx-auto transition-colors"
               onClick={() => setIsAddModalOpen(true)}
             >
               <Plus className="w-4 h-4" />
@@ -520,16 +520,16 @@ const FollowUpList = () => {
         {/* PAGINATION Bottom */}
         {followUps.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6">
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-gray-600">
               Showing {followUps.length} of {total} items
             </div>
             <div className="flex items-center gap-2">
               <button
-                className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === 1 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
                 onClick={handlePrev}
                 disabled={currentPage === 1 || isLoading || !userId}
               >
-                <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                <ChevronLeft className="w-4 h-4 mr-1 text-gray-600" /> Prev
               </button>
               <div className="hidden sm:flex items-center gap-1">
                 {Array.from({ length: Math.min(5, lastPage) }, (_, i) => {
@@ -547,7 +547,7 @@ const FollowUpList = () => {
                     <button
                       key={pageNum}
                       onClick={() => handlePageClick(pageNum)}
-                      className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === pageNum ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                      className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === pageNum ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
                       disabled={isLoading || !userId}
                     >
                       {pageNum}
@@ -559,7 +559,7 @@ const FollowUpList = () => {
                     <span className="px-2 text-gray-500">...</span>
                     <button
                       onClick={() => handlePageClick(lastPage)}
-                      className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                      className={`w-8 h-8 rounded-md text-sm flex items-center justify-center ${currentPage === lastPage ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
                       disabled={isLoading || !userId}
                     >
                       {lastPage}
@@ -568,11 +568,11 @@ const FollowUpList = () => {
                 )}
               </div>
               <button
-                className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === lastPage ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'}`}
+                className={`flex items-center px-3 py-1 rounded-md text-sm ${currentPage === lastPage ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300'}`}
                 onClick={handleNext}
                 disabled={currentPage === lastPage || isLoading || !userId}
               >
-                Next <ChevronRight className="w-4 h-4 ml-1" />
+                Next <ChevronRight className="w-4 h-4 ml-1 text-gray-600" />
               </button>
             </div>
           </div>
