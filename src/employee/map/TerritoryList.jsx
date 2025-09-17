@@ -10,7 +10,7 @@ import {
    useListItineraryItemsQuery,
 } from "../../features/territory/TerritoryApiSlice";
 import TerritoryMapUpdate from "./UpdateTerritoryModel.jsx";
-import ItineraryViewerModel from "./ItineraryViewerModal.jsx";
+import ItineraryViewerModal from "./ItineraryViewerModal.jsx";
 
 /* ---------------------------
  *  Tiny UI Helpers
@@ -406,14 +406,17 @@ export default function ItineraryGrid({ onView, onEdit, onCreate }) {
         {editId && (
           <TerritoryMapUpdate
             id={editId}
+              open={!!editId}
             onClose={() => setEditId(null)}
             onUpdated={() => setEditId(null)}
           />
         )}
 
         {viewId && (
-          <ItineraryViewerModel
+          <ItineraryViewerModal
+           
             id={viewId}
+            open={!!viewId}
             onClose={() => setViewId(null)}
           />
         )}
