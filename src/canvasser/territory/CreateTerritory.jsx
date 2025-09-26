@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
+  GoogleMap,
+  DrawingManager,
+  Circle,
+} from "@react-google-maps/api";
+import {
   Search, Triangle, X, Save, Loader2, Eye,
   ChevronDown, ChevronUp, Compass, ZoomIn, ZoomOut
 } from "lucide-react";
@@ -7,26 +12,16 @@ import { useCreateItineraryItemMutation } from "../../features/territory/Territo
 import { useGetLeadUsersQuery } from "../../features/leads/leadsApiSlice";
 import toast, { Toaster } from "react-hot-toast";
 
-// ⚠️ Tumhari demand ke mutabiq: region-locked map (Houston + nearby states)
-const GOOGLE_MAPS_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
-
-// =====================
-// Region + Map Constants
-// =====================
 const HOUSTON_CENTER = { lat: 29.7604, lng: -95.3698 };
 const DEFAULT_MAP_CENTER = HOUSTON_CENTER;
 const DEFAULT_ZOOM = 6;
 const DEFAULT_COLOR = "#3B82F6";
-
-// Wide but sensible rectangle to cover TX and ~10–15 nearby states
-// (AZ, NM, CO, KS, MO, OK, AR, LA, MS, AL, GA, FL, TN, etc.)
 const SOUTH_CENTRAL_BOUNDS = {
-  north: 30.5,    // Northern boundary (Conroe area)
-  south: 29.0,    // Southern boundary (Galveston area)
-  west: -96.5,    // Western boundary (Columbus area)
-  east: -94.5,    // Eastern boundary (Beaumont area)
+  north: 30.5,
+  south: 29.0,
+  west: -96.5,
+  east: -94.5,
 };
-
 
 const BASE_MAP_OPTIONS = {
   streetViewControl: false,
@@ -47,24 +42,9 @@ const BASE_MAP_OPTIONS = {
     { featureType: "poi", stylers: [{ visibility: "off" }] },
     { featureType: "road", stylers: [{ visibility: "off" }] },
     { featureType: "transit", stylers: [{ visibility: "off" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] }
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
   ],
 };
-
-// ============
-// Helpers
-// ============
-const loadScript = (src) =>
-  new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error("Google Maps failed to load"));
-    document.body.appendChild(s);
-  });
 
 const toGeoJSONPolygon = (pts = []) => {
   const normalized = (pts ?? []).map((c) => [Number(c.lng), Number(c.lat)]);
@@ -91,25 +71,14 @@ const getLocationName = (addressComponents = []) => {
   );
 };
 
-// Build reusable LatLngBounds instance from our constant box
-const makeRegionBounds = () => new window.google.maps.LatLngBounds(
-  new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
-  new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
-);
-
 const TerritoryMapCreate = () => {
-  // Refs
   const mapRef = useRef(null);
-  const mapObjRef = useRef(null);
   const autocompleteService = useRef(null);
   const placesService = useRef(null);
-  const drawingManagerRef = useRef(null);
   const radiusCircleRef = useRef(null);
   const gListenersRef = useRef([]);
-  const oneClickRadiusRef = useRef(null);
 
-  // UI State
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [map, setMap] = useState(null);
   const [mapType, setMapType] = useState("hybrid");
   const [proDetail, setProDetail] = useState(true);
   const [drawingMode, setDrawingMode] = useState(false);
@@ -126,10 +95,7 @@ const TerritoryMapCreate = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showControls, setShowControls] = useState(true);
 
-  // RTK Query
   const [createItem, { isLoading: isSaving }] = useCreateItineraryItemMutation();
-
-  // Users (same shape as your dashboard)
   const [usersPage] = useState(1);
   const {
     data: usersData = {},
@@ -142,106 +108,25 @@ const TerritoryMapCreate = () => {
   const users = usersData?.data?.data || [];
   const [assignedUserId, setAssignedUserId] = useState("");
 
-  // ==================
-  // Map Initialization
-  // ==================
-  const initializeMap = useCallback(async () => {
-    try {
-      await loadScript(
-        `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=drawing,places,geometry`
-      );
-
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: DEFAULT_MAP_CENTER,
-        zoom: DEFAULT_ZOOM,
-        mapTypeId: mapType,
-        ...BASE_MAP_OPTIONS,
-        restriction: {
-          latLngBounds: SOUTH_CENTRAL_BOUNDS,
-          strictBounds: true,
-        },
-      });
-      mapObjRef.current = map;
-
-      // Drawing manager
-      const drawingManager = new window.google.maps.drawing.DrawingManager({
-        drawingMode: null,
-        drawingControl: false,
-        polygonOptions: {
-          fillColor: color,
-          fillOpacity: 0.25,
-          strokeWeight: 2,
-          strokeColor: color,
-          clickable: false,
-          editable: true,
-          zIndex: 1,
-        },
-      });
-      drawingManager.setMap(map);
-      drawingManagerRef.current = drawingManager;
-
-      // Overlay complete
-      const oc = window.google.maps.event.addListener(drawingManager, "overlaycomplete", (event) => {
-        if (event.type === "polygon") {
-          handlePolygonComplete(event.overlay);
-          event.overlay.setMap(null);
-          setDrawingMode(false);
-          drawingManager.setDrawingMode(null);
-        }
-      });
-      gListenersRef.current.push(oc);
-
-      // Services
-      autocompleteService.current = new window.google.maps.places.AutocompleteService();
-      placesService.current = new window.google.maps.places.PlacesService(map);
-
-      setMapLoaded(true);
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to load Google Maps.");
-    }
-  // IMPORTANT: run once. Don't depend on color/mapType here to avoid re-initialization glitches
+  const onMapLoad = useCallback((map) => {
+    mapRef.current = map;
+    setMap(map);
+    autocompleteService.current = new window.google.maps.places.AutocompleteService();
+    placesService.current = new window.google.maps.places.PlacesService(map);
   }, []);
 
-  useEffect(() => {
-    initializeMap();
-    return () => {
-      // cleanup listeners
-      gListenersRef.current.forEach((l) => window.google?.maps?.event?.removeListener(l));
-      gListenersRef.current = [];
-      if (oneClickRadiusRef.current) {
-        window.google?.maps?.event?.removeListener(oneClickRadiusRef.current);
-        oneClickRadiusRef.current = null;
-      }
-      radiusCircleRef.current?.setMap(null);
+  const onMapUnmount = useCallback(() => {
+    setMap(null);
+    gListenersRef.current.forEach((l) => window.google?.maps?.event?.removeListener(l));
+    gListenersRef.current = [];
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.setMap(null);
       radiusCircleRef.current = null;
-    };
-  }, [initializeMap]);
+    }
+  }, []);
 
-  // Update polygon/radius color live
-  useEffect(() => {
-    if (!drawingManagerRef.current) return;
-    drawingManagerRef.current.setOptions({
-      polygonOptions: {
-        ...(drawingManagerRef.current.get("polygonOptions") || {}),
-        strokeColor: color,
-        fillColor: color,
-      },
-    });
-    if (radiusCircleRef.current) radiusCircleRef.current.setOptions({ strokeColor: color, fillColor: color });
-  }, [color]);
-
-  // Update mapType dynamically (without reloading map)
-  useEffect(() => {
-    if (!mapObjRef.current) return;
-    mapObjRef.current.setMapTypeId(mapType);
-  }, [mapType]);
-
-  // ==============
-  // Polygon Handle
-  // ==============
-  const handlePolygonComplete = useCallback((overlay) => {
-    const path = overlay.getPath();
+  const handlePolygonComplete = useCallback((event) => {
+    const path = event.overlay.getPath();
     const points = [];
     for (let i = 0; i < path.getLength(); i++) {
       const latLng = path.getAt(i);
@@ -261,23 +146,23 @@ const TerritoryMapCreate = () => {
       setCoords(points);
       setCenterLL({ lat: center.lat(), lng: center.lng() });
       setSavingUIOpen(true);
+      setDrawingMode(false);
+      event.overlay.setMap(null);
     });
   }, []);
 
-  // =======
-  // Search
-  // =======
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim() || !autocompleteService.current) return;
 
-    const bounds = makeRegionBounds();
-    // Prefer bias within our region. locationRestriction is not widely available in web v3.
+    const bounds = new window.google.maps.LatLngBounds(
+      new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+      new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+    );
     autocompleteService.current.getPlacePredictions(
       {
         input: searchQuery,
         componentRestrictions: { country: "us" },
-        bounds, // clamp/bias to our region
-        // locationBias: bounds, // alternative bias param on some versions
+        bounds,
         types: ["geocode"],
       },
       (predictions, status) => {
@@ -297,21 +182,21 @@ const TerritoryMapCreate = () => {
     placesService.current.getDetails({ placeId }, (place, status) => {
       if (status === window.google.maps.places.PlacesServiceStatus.OK && place.geometry) {
         const loc = place.geometry.location;
-        const inBounds = makeRegionBounds().contains(loc);
+        const bounds = new window.google.maps.LatLngBounds(
+          new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+          new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+        );
+        const inBounds = bounds.contains(loc);
         const target = inBounds ? loc : new window.google.maps.LatLng(HOUSTON_CENTER.lat, HOUSTON_CENTER.lng);
-        mapObjRef.current?.panTo(target);
-        mapObjRef.current?.setZoom(12);
+        mapRef.current?.panTo(target);
+        mapRef.current?.setZoom(12);
         setShowSearchResults(false);
         setSearchQuery(place.formatted_address || "");
       }
     });
   }, []);
 
-  // =========
-  // Drawing
-  // =========
   const startDrawing = useCallback(() => {
-    if (!drawingManagerRef.current) return;
     setCoords(null);
     setCenterLL(null);
     setSavingUIOpen(false);
@@ -320,39 +205,27 @@ const TerritoryMapCreate = () => {
       radiusCircleRef.current.setMap(null);
       radiusCircleRef.current = null;
     }
-    if (oneClickRadiusRef.current) {
-      window.google?.maps?.event?.removeListener(oneClickRadiusRef.current);
-      oneClickRadiusRef.current = null;
-    }
-    drawingManagerRef.current.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
   }, []);
 
   const cancelDrawing = useCallback(() => {
-    if (!drawingManagerRef.current) return;
     setDrawingMode(false);
-    drawingManagerRef.current.setDrawingMode(null);
-    if (oneClickRadiusRef.current) {
-      window.google?.maps?.event?.removeListener(oneClickRadiusRef.current);
-      oneClickRadiusRef.current = null;
-    }
     if (radiusCircleRef.current) {
       radiusCircleRef.current.setMap(null);
       radiusCircleRef.current = null;
     }
   }, []);
 
-  const handleSelectCenterForRadius = () => {
+  const handleSelectCenterForRadius = useCallback(() => {
     setDrawingMode(true);
     toast("Click on the map to set the center point", { icon: "📍" });
 
-    if (oneClickRadiusRef.current) {
-      window.google?.maps?.event?.removeListener(oneClickRadiusRef.current);
-      oneClickRadiusRef.current = null;
-    }
-
-    oneClickRadiusRef.current = window.google.maps.event.addListener(mapObjRef.current, "click", (e) => {
+    const clickListener = mapRef.current.addListener("click", (e) => {
       const p = e.latLng;
-      const inBounds = makeRegionBounds().contains(p);
+      const bounds = new window.google.maps.LatLngBounds(
+        new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+        new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+      );
+      const inBounds = bounds.contains(p);
       if (!inBounds) {
         toast.error("Please select a point within the allowed region.");
         return;
@@ -371,7 +244,7 @@ const TerritoryMapCreate = () => {
         strokeWeight: 2,
         strokeColor: color,
         fillColor: color,
-        map: mapObjRef.current,
+        map: mapRef.current,
       });
 
       setDetecting(true);
@@ -383,15 +256,12 @@ const TerritoryMapCreate = () => {
         } else setSuggestedName("");
       });
 
-      window.google.maps.event.removeListener(oneClickRadiusRef.current);
-      oneClickRadiusRef.current = null;
+      window.google.maps.event.removeListener(clickListener);
       setDrawingMode(false);
     });
-  };
+    gListenersRef.current.push(clickListener);
+  }, [color, radiusVal]);
 
-  // ======
-  // Save
-  // ======
   const handleSave = async (e) => {
     e.preventDefault();
 
@@ -425,10 +295,7 @@ const TerritoryMapCreate = () => {
     }
 
     try {
-      const res = createItem({ type, payload: body }).unwrap
-        ? await createItem({ type, payload: body }).unwrap()
-        : await createItem({ type, payload: body });
-
+      const res = await createItem({ type, payload: body }).unwrap();
       toast.success(res?.message || "Territory created successfully.");
       setSavingUIOpen(false);
       setCoords(null);
@@ -444,20 +311,63 @@ const TerritoryMapCreate = () => {
     }
   };
 
-  // =============
-  // Map Controls
-  // =============
-  const zoomIn = () => mapObjRef.current?.setZoom(mapObjRef.current.getZoom() + 1);
-  const zoomOut = () => mapObjRef.current?.setZoom(mapObjRef.current.getZoom() - 1);
+  const zoomIn = () => mapRef.current?.setZoom(mapRef.current.getZoom() + 1);
+  const zoomOut = () => mapRef.current?.setZoom(mapRef.current.getZoom() - 1);
   const resetView = () => {
-    if (!mapObjRef.current) return;
-    mapObjRef.current.panTo(HOUSTON_CENTER);
-    mapObjRef.current.setZoom(DEFAULT_ZOOM);
+    if (!mapRef.current) return;
+    mapRef.current.panTo(HOUSTON_CENTER);
+    mapRef.current.setZoom(DEFAULT_ZOOM);
   };
 
   return (
     <div className="relative h-[calc(100vh-100px)] min-h-[720px] w-full bg-[#0a1122]">
       <Toaster position="top-right" />
+      <GoogleMap
+        mapContainerStyle={{ width: "100%", height: "100%" }}
+        center={DEFAULT_MAP_CENTER}
+        zoom={DEFAULT_ZOOM}
+        onLoad={onMapLoad}
+        onUnmount={onMapUnmount}
+        options={{
+          ...BASE_MAP_OPTIONS,
+          mapTypeId: mapType,
+          restriction: {
+            latLngBounds: SOUTH_CENTRAL_BOUNDS,
+            strictBounds: true,
+          },
+        }}
+      >
+        {drawingMode && (
+          <DrawingManager
+            onPolygonComplete={handlePolygonComplete}
+            options={{
+              drawingMode: type === "polygon" ? window.google.maps.drawing.OverlayType.POLYGON : null,
+              drawingControl: false,
+              polygonOptions: {
+                fillColor: color,
+                fillOpacity: 0.25,
+                strokeWeight: 2,
+                strokeColor: color,
+                clickable: false,
+                editable: true,
+                zIndex: 1,
+              },
+            }}
+          />
+        )}
+        {type === "radius" && radiusCircleRef.current && (
+          <Circle
+            center={centerLL}
+            radius={Number(radiusVal || 0) * 1000}
+            options={{
+              fillColor: color,
+              fillOpacity: 0.25,
+              strokeWeight: 2,
+              strokeColor: color,
+            }}
+          />
+        )}
+      </GoogleMap>
 
       {/* Top: Search + Controls toggle */}
       <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
@@ -474,7 +384,6 @@ const TerritoryMapCreate = () => {
               aria-label="Search location"
             />
           </div>
-
           {showSearchResults && searchResults.length > 0 && (
             <div className="absolute left-0 right-0 top-12 max-h-64 overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200" role="listbox">
               {searchResults.map((r) => (
@@ -491,7 +400,6 @@ const TerritoryMapCreate = () => {
             </div>
           )}
         </div>
-
         <button
           onClick={() => setShowControls((v) => !v)}
           className="p-2 ml-4 rounded-lg bg-white/90 backdrop-blur-md text-slate-700 hover:bg-white transition-colors shadow-lg"
@@ -528,7 +436,6 @@ const TerritoryMapCreate = () => {
                 ))}
               </div>
             </div>
-
             <div className="border-t border-slate-200 pt-3">
               <h3 className="text-sm font-semibold text-slate-800 mb-2">Territory Type</h3>
               <div className="flex gap-2 mb-3">
@@ -545,7 +452,6 @@ const TerritoryMapCreate = () => {
                   Radius
                 </button>
               </div>
-
               {type === "radius" && (
                 <div className="mb-3">
                   <label className="block text-xs text-slate-600 mb-1">Radius (km)</label>
@@ -564,7 +470,6 @@ const TerritoryMapCreate = () => {
                   />
                 </div>
               )}
-
               <div className="mb-3">
                 <label className="block text-xs text-slate-600 mb-1">Color</label>
                 <div className="flex items-center gap-2">
@@ -579,13 +484,11 @@ const TerritoryMapCreate = () => {
                   <span className="text-sm text-slate-700">{color}</span>
                 </div>
               </div>
-
               <div className="flex gap-2">
                 {!drawingMode ? (
                   <button
                     onClick={() => (type === "polygon" ? startDrawing() : handleSelectCenterForRadius())}
-                    disabled={!mapLoaded}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:bg-slate-400"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
                   >
                     <Triangle size={16} /> {type === "polygon" ? "Draw" : "Select Center"}
                   </button>
@@ -598,7 +501,6 @@ const TerritoryMapCreate = () => {
                   </button>
                 )}
               </div>
-
               <div className="border-t border-slate-200 pt-3">
                 <h3 className="text-sm font-semibold text-slate-800 mb-2">View Options</h3>
                 <button
@@ -629,11 +531,6 @@ const TerritoryMapCreate = () => {
         </button>
       </div>
 
-      {/* Map */}
-      <div className="absolute inset-0">
-        <div ref={mapRef} className="w-full h-full" style={{ background: "#0a1122" }} aria-label="Interactive map" />
-      </div>
-
       {/* Save Panel */}
       {savingUIOpen && (coords || centerLL) && (
         <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-80 rounded-xl bg-white/95 p-5 shadow-xl border border-slate-200">
@@ -646,10 +543,6 @@ const TerritoryMapCreate = () => {
                 setCenterLL(null);
                 setSuggestedName("");
                 setAssignedUserId("");
-                if (oneClickRadiusRef.current) {
-                  window.google?.maps?.event?.removeListener(oneClickRadiusRef.current);
-                  oneClickRadiusRef.current = null;
-                }
                 if (radiusCircleRef.current) {
                   radiusCircleRef.current.setMap(null);
                   radiusCircleRef.current = null;
@@ -661,7 +554,6 @@ const TerritoryMapCreate = () => {
               <X size={18} />
             </button>
           </div>
-
           {detecting ? (
             <div className="flex items-center justify-center gap-2 py-6 text-slate-500">
               <Loader2 className="animate-spin" /> Detecting location name…
@@ -678,8 +570,6 @@ const TerritoryMapCreate = () => {
                   required
                 />
               </div>
-
-              {/* Assign to user */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Assign to User</label>
                 {isLoadingUsers ? (
@@ -712,11 +602,9 @@ const TerritoryMapCreate = () => {
                   </select>
                 )}
               </div>
-
               {type === "polygon" && coords && (
                 <div className="text-xs text-slate-500">{coords.length} points selected</div>
               )}
-
               <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600 space-y-1">
                 <div className="flex justify-between"><span>Type:</span><span className="font-medium text-slate-800">{type}</span></div>
                 {type === "radius" && (
@@ -733,7 +621,6 @@ const TerritoryMapCreate = () => {
                   </span>
                 </div>
               </div>
-
               <button
                 type="submit"
                 disabled={isSaving}

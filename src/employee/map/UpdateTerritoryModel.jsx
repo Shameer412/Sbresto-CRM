@@ -8,7 +8,7 @@ import { useGetItineraryByIdQuery, useUpdateItineraryItemMutation } from "../../
 import toast from "react-hot-toast";
 
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const DEFAULT_CENTER = { lat: 31.5204, lng: 74.3587 };
 
 

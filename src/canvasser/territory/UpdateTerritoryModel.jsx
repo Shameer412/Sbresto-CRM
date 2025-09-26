@@ -1,789 +1,682 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
-  X, Save, Edit3, RotateCcw, MapPin, Navigation,
-  ZoomIn, ZoomOut, Maximize2, Minimize2, Loader2,
-  Square, Circle, Layers, Moon, Sun
+  GoogleMap,
+  DrawingManager,
+  Circle,
+} from "@react-google-maps/api";
+import {
+  Search, Triangle, X, Save, Loader2, Eye,
+  ChevronDown, ChevronUp, Compass, ZoomIn, ZoomOut
 } from "lucide-react";
-import { useGetItineraryByIdQuery, useUpdateItineraryItemMutation } from "../../features/territory/TerritoryApiSlice";
-import toast from "react-hot-toast";
+import { useUpdateItineraryItemMutation } from "../../features/territory/TerritoryApiSlice";
+import { useGetLeadUsersQuery } from "../../features/leads/leadsApiSlice";
+import toast, { Toaster } from "react-hot-toast";
 
+const HOUSTON_CENTER = { lat: 29.7604, lng: -95.3698 };
+const DEFAULT_ZOOM = 6;
+const DEFAULT_COLOR = "#3B82F6";
+const SOUTH_CENTRAL_BOUNDS = {
+  north: 30.5,
+  south: 29.0,
+  west: -96.5,
+  east: -94.5,
+};
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
-const DEFAULT_CENTER = { lat: 31.5204, lng: 74.3587 };
+const BASE_MAP_OPTIONS = {
+  streetViewControl: false,
+  fullscreenControl: false,
+  mapTypeControl: false,
+  zoomControl: false,
+  gestureHandling: "greedy",
+  disableDoubleClickZoom: false,
+  clickableIcons: true,
+  isFractionalZoomEnabled: true,
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#1d2d50" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#8ec3eb" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+    { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
+    { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+    { featureType: "administrative.neighborhood", stylers: [{ visibility: "off" }] },
+    { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "road", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
+  ],
+};
 
-
-export default function TerritoryMapUpdate({ id, open, onClose }) {
-  const mapRef = useRef(null);
-  const mapObjRef = useRef(null);
-  const drawingManagerRef = useRef(null);
-  const territoryShapeRef = useRef(null);
-  const editListenersRef = useRef([]);
-
-  // === Dark Mode State ===
-  const [darkMode, setDarkMode] = useState(true); // Force dark mode by default
-
-  // Persist dark mode preference
-  useEffect(() => {
-    localStorage.setItem("territoryDarkMode", JSON.stringify(darkMode));
-    
-    // Update document class for potential global styling
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [darkMode]);
-
-  // === API: FETCH & UPDATE ===
-  const {
-    data: apiRes,
-    isLoading: isDataLoading,
-    isFetching,
-    isError,
-    error,
-    refetch,
-  } = useGetItineraryByIdQuery(id, {
-    // Only fetch when a valid id is provided and modal is open
-    skip: !id || !open,
-    refetchOnMountOrArgChange: true,
-  });
-  const [updateItem, { isLoading: isSaving }] = useUpdateItineraryItemMutation();
-
-  // === Local UI state ===
-  const [color, setColor] = useState("#3B82F6");
-  const [name, setName] = useState("");
-  const [type, setType] = useState("polygon");
-  const [coords, setCoords] = useState([]); // [{lat,lng}]
-  const [radius, setRadius] = useState(1); // km
-  const [center, setCenter] = useState(DEFAULT_CENTER);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
-
-  // === Load Google Maps script once when modal opens ===
-  useEffect(() => {
-    if (!open) return;
-
-    const ready = () => !!(window.google && window.google.maps);
-    if (ready()) {
-      setScriptLoaded(true);
-      return;
-    }
-
-    const existing = document.getElementById("gmaps-script");
-    if (existing) {
-      existing.addEventListener("load", () => setScriptLoaded(true), { once: true });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = "gmaps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=drawing,geometry`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setScriptLoaded(true);
-      toast.success("Google Maps loaded");
-    };
-    script.onerror = () => {
-      console.error("Google Maps script failed to load");
-      toast.error("Failed to load Google Maps");
-    };
-    document.head.appendChild(script);
-  }, [open]);
-
-  // === Initialize map once script is ready ===
-  useEffect(() => {
-    if (!scriptLoaded || !open || !mapRef.current) return;
-
-    const mapStyles = [
-      { elementType: "geometry", stylers: [{ color: "#1a1a1a" }] },
-      { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-      { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-      {
-        featureType: "administrative.locality",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#d59563" }]
-      },
-      {
-        featureType: "poi",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#d59563" }]
-      },
-      {
-        featureType: "poi.park",
-        elementType: "geometry",
-        stylers: [{ color: "#263c3f" }]
-      },
-      {
-        featureType: "poi.park",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#6b9a76" }]
-      },
-      {
-        featureType: "road",
-        elementType: "geometry",
-        stylers: [{ color: "#38414e" }]
-      },
-      {
-        featureType: "road",
-        elementType: "geometry.stroke",
-        stylers: [{ color: "#212a37" }]
-      },
-      {
-        featureType: "road",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#9ca5b3" }]
-      },
-      {
-        featureType: "road.highway",
-        elementType: "geometry",
-        stylers: [{ color: "#746855" }]
-      },
-      {
-        featureType: "road.highway",
-        elementType: "geometry.stroke",
-        stylers: [{ color: "#1f2835" }]
-      },
-      {
-        featureType: "road.highway",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#f3d19c" }]
-      },
-      {
-        featureType: "transit",
-        elementType: "geometry",
-        stylers: [{ color: "#2f3948" }]
-      },
-      {
-        featureType: "transit.station",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#d59563" }]
-      },
-      {
-        featureType: "water",
-        elementType: "geometry",
-        stylers: [{ color: "#17263c" }]
-      },
-      {
-        featureType: "water",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#515c6d" }]
-      },
-      {
-        featureType: "water",
-        elementType: "labels.text.stroke",
-        stylers: [{ color: "#17263c" }]
-      },
-      { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
-    ];
-
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: DEFAULT_CENTER,
-      zoom: 12,
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: false,
-      zoomControl: false, // we add our own controls
-      styles: mapStyles,
-    });
-
-    mapObjRef.current = map;
-
-    // Custom zoom control (no JSX in innerHTML)
-    const zoomControlDiv = document.createElement("div");
-    makeZoomControl(zoomControlDiv, map, darkMode);
-    zoomControlDiv.index = 1;
-    map.controls[window.google.maps.ControlPosition.RIGHT_BOTTOM].push(zoomControlDiv);
-
-    // Drawing manager (to get editable shapes)
-    drawingManagerRef.current = new window.google.maps.drawing.DrawingManager({
-      drawingMode: null,
-      drawingControl: false,
-      polygonOptions: {
-        fillColor: color,
-        strokeColor: color,
-        fillOpacity: 0.3,
-        strokeWeight: 3,
-        editable: true,
-        draggable: true,
-      },
-      circleOptions: {
-        fillColor: color,
-        strokeColor: color,
-        fillOpacity: 0.3,
-        strokeWeight: 3,
-        editable: true,
-        draggable: true,
-      },
-    });
-    drawingManagerRef.current.setMap(map);
-
-    window.google.maps.event.addListenerOnce(map, "idle", () => setMapLoaded(true));
-
-    return () => {
-      clearEditListeners();
-      if (territoryShapeRef.current) territoryShapeRef.current.setMap(null);
-      if (drawingManagerRef.current) drawingManagerRef.current.setMap(null);
-      mapObjRef.current = null;
-    };
-  }, [scriptLoaded, open, darkMode]);
-
-  // === Draw territory whenever API data & map are both ready ===
-  useEffect(() => {
-    if (!mapLoaded || !mapObjRef.current) return;
-
-    if (isError) {
-      toast.error("Failed to fetch territory");
-      return;
-    }
-
-    const territory = apiRes?.data; // <-- your API returns { data: {...} }
-    if (!territory) {
-      // No territory yet — just center to default
-      mapObjRef.current.setCenter(DEFAULT_CENTER);
-      mapObjRef.current.setZoom(12);
-      return;
-    }
-
-    loadTerritoryData(mapObjRef.current, territory);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiRes, isError, mapLoaded]);
-
-  // === Helpers ===
-  const clearEditListeners = () => {
-    if (!editListenersRef.current.length) return;
-    editListenersRef.current.forEach((l) => window.google.maps.event.removeListener(l));
-    editListenersRef.current = [];
-  };
-
-  const loadTerritoryData = (map, territoryData) => {
-    // Clear existing shape & listeners
-    clearEditListeners();
-    if (territoryShapeRef.current) {
-      territoryShapeRef.current.setMap(null);
-      territoryShapeRef.current = null;
-    }
-
-    setName(territoryData.name || "");
-    const nextColor = territoryData.color || "#3B82F6";
-    setColor(nextColor);
-    const nextType = territoryData.type || "polygon";
-    setType(nextType);
-
-    if (nextType === "polygon" && territoryData.polygon?.coordinates) {
-      const coordsArr = territoryData.polygon.coordinates[0]
-        .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) }));
-
-      setCoords(coordsArr);
-
-      territoryShapeRef.current = new window.google.maps.Polygon({
-        paths: coordsArr,
-        editable: false,
-        draggable: false,
-        strokeColor: nextColor,
-        strokeWeight: 3,
-        fillColor: nextColor,
-        fillOpacity: 0.3,
-        map,
-        zIndex: 1000,
-      });
-
-      const bounds = new window.google.maps.LatLngBounds();
-      coordsArr.forEach((c) => bounds.extend(c));
-      if (!bounds.isEmpty()) map.fitBounds(bounds);
-    } else if (
-      nextType === "radius" &&
-      territoryData.center_lat != null &&
-      territoryData.center_lng != null
-    ) {
-      const centerCoords = { lat: Number(territoryData.center_lat), lng: Number(territoryData.center_lng) };
-      setCenter(centerCoords);
-      const r = Number(territoryData.radius || 1);
-      setRadius(r);
-
-      territoryShapeRef.current = new window.google.maps.Circle({
-        center: centerCoords,
-        radius: r * 1000,
-        editable: false,
-        draggable: false,
-        strokeColor: nextColor,
-        strokeWeight: 3,
-        fillColor: nextColor,
-        fillOpacity: 0.3,
-        map,
-        zIndex: 1000,
-      });
-
-      const bounds = territoryShapeRef.current.getBounds();
-      if (bounds) map.fitBounds(bounds);
-    } else {
-      // Fallback to default
-      map.setCenter(DEFAULT_CENTER);
-      map.setZoom(12);
-    }
-  };
-
-  function makeZoomControl(controlDiv, map, isDark) {
-    controlDiv.style.padding = "6px";
-
-    const mkBtn = (label, title) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.title = title;
-      b.textContent = label;
-      b.className = `p-2 rounded shadow-md hover:bg-opacity-80 w-9 h-9 flex items-center justify-center text-lg bg-gray-800 text-gray-300 hover:bg-gray-700`;
-      return b;
-    };
-
-    const zoomInBtn = mkBtn("+", "Zoom in");
-    const zoomOutBtn = mkBtn("-", "Zoom out");
-
-    controlDiv.appendChild(zoomInBtn);
-    controlDiv.appendChild(zoomOutBtn);
-
-    window.google.maps.event.addDomListener(zoomInBtn, "click", () => map.setZoom(map.getZoom() + 1));
-    window.google.maps.event.addDomListener(zoomOutBtn, "click", () => map.setZoom(map.getZoom() - 1));
+const toGeoJSONPolygon = (pts = []) => {
+  const normalized = (pts ?? []).map((c) => [Number(c.lng), Number(c.lat)]);
+  if (normalized.length) {
+    const first = normalized[0];
+    const last = normalized[normalized.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) normalized.push(first);
   }
+  return { type: "Polygon", coordinates: [normalized] };
+};
 
-  // === Edit / Reset / Save ===
-  const toggleEdit = () => {
-    if (!territoryShapeRef.current) return;
+const getLocationName = (addressComponents = []) => {
+  const neighborhood = addressComponents.find((c) => c.types.includes("neighborhood"));
+  const locality = addressComponents.find((c) => c.types.includes("locality"));
+  const admin2 = addressComponents.find((c) => c.types.includes("administrative_area_level_2"));
+  const admin1 = addressComponents.find((c) => c.types.includes("administrative_area_level_1"));
+  const country = addressComponents.find((c) => c.types.includes("country"));
+  return (
+    neighborhood?.long_name ||
+    locality?.long_name ||
+    admin2?.long_name ||
+    admin1?.long_name ||
+    country?.long_name
+  );
+};
 
-    const newEditing = !isEditing;
-    setIsEditing(newEditing);
+const TerritoryMapUpdate = ({ open, onClose, territory }) => {
+  const mapRef = useRef(null);
+  const autocompleteService = useRef(null);
+  const placesService = useRef(null);
+  const radiusCircleRef = useRef(null);
+  const gListenersRef = useRef([]);
 
-    if (
-      territoryShapeRef.current instanceof window.google.maps.Polygon ||
-      territoryShapeRef.current instanceof window.google.maps.Circle
-    ) {
-      territoryShapeRef.current.setEditable(newEditing);
-      territoryShapeRef.current.setDraggable(newEditing);
-    }
+  const [map, setMap] = useState(null);
+  const [mapType, setMapType] = useState("hybrid");
+  const [proDetail, setProDetail] = useState(true);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [coords, setCoords] = useState(territory?.polygon?.coordinates?.[0]?.map(toLatLng) || null);
+  const [centerLL, setCenterLL] = useState(
+    territory?.center_lat && territory?.center_lng
+      ? { lat: Number(territory.center_lat), lng: Number(territory.center_lng) }
+      : null
+  );
+  const [suggestedName, setSuggestedName] = useState(territory?.name || "");
+  const [color, setColor] = useState(territory?.color || DEFAULT_COLOR);
+  const [savingUIOpen, setSavingUIOpen] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [type, setType] = useState(territory?.type || "polygon");
+  const [radiusVal, setRadiusVal] = useState(territory?.radius || "");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
-    clearEditListeners();
+  const [updateItem, { isLoading: isSaving }] = useUpdateItineraryItemMutation();
+  const [usersPage] = useState(1);
+  const {
+    data: usersData = {},
+    isLoading: isLoadingUsers,
+    isError: isUsersError,
+    error: usersError,
+    refetch: refetchUsers,
+  } = useGetLeadUsersQuery(usersPage);
 
-    if (newEditing) {
-      if (type === "polygon") {
-        const path = territoryShapeRef.current.getPath();
-        const pushCoords = () => setCoords(path.getArray().map((p) => ({ lat: p.lat(), lng: p.lng() })));
-        editListenersRef.current.push(
-          window.google.maps.event.addListener(path, "set_at", pushCoords),
-          window.google.maps.event.addListener(path, "insert_at", pushCoords),
-          window.google.maps.event.addListener(path, "remove_at", pushCoords)
-        );
-      } else {
-        editListenersRef.current.push(
-          window.google.maps.event.addListener(
-            territoryShapeRef.current,
-            "radius_changed",
-            () => setRadius(territoryShapeRef.current.getRadius() / 1000)
-          ),
-          window.google.maps.event.addListener(
-            territoryShapeRef.current,
-            "center_changed",
-            () => {
-              const c = territoryShapeRef.current.getCenter();
-              setCenter({ lat: c.lat(), lng: c.lng() });
-            }
-          )
-        );
+  const users = usersData?.data?.data || [];
+  const [assignedUserId, setAssignedUserId] = useState(territory?.assigned_to || "");
+
+  const onMapLoad = useCallback((map) => {
+    mapRef.current = map;
+    setMap(map);
+    autocompleteService.current = new window.google.maps.places.AutocompleteService();
+    placesService.current = new window.google.maps.places.PlacesService(map);
+    if (territory) {
+      const bounds = new window.google.maps.LatLngBounds();
+      if (territory.type === "radius" && territory.center_lat && territory.center_lng && territory.radius) {
+        const circle = new window.google.maps.Circle({
+          center: { lat: Number(territory.center_lat), lng: Number(territory.center_lng) },
+          radius: Number(territory.radius) * 1000,
+        });
+        bounds.union(circle.getBounds());
+      } else if (territory.polygon) {
+        const polygonPath = territory.polygon.coordinates[0].map(toLatLng);
+        polygonPath.forEach((p) => bounds.extend(p));
+      }
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, 80);
       }
     }
-  };
+  }, [territory]);
 
-  const resetChanges = () => {
-    const territory = apiRes?.data;
-    if (territory && mapObjRef.current) {
-      if (territoryShapeRef.current) territoryShapeRef.current.setMap(null);
-      loadTerritoryData(mapObjRef.current, territory);
+  const onMapUnmount = useCallback(() => {
+    setMap(null);
+    gListenersRef.current.forEach((l) => window.google?.maps?.event?.removeListener(l));
+    gListenersRef.current = [];
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.setMap(null);
+      radiusCircleRef.current = null;
     }
-    setIsEditing(false);
-  };
+  }, []);
 
-  const toggleFullscreen = () => setIsFullscreen((v) => !v);
-  
-  const toggleDarkMode = () => setDarkMode(prev => !prev);
+  const handlePolygonComplete = useCallback((event) => {
+    const path = event.overlay.getPath();
+    const points = [];
+    for (let i = 0; i < path.getLength(); i++) {
+      const latLng = path.getAt(i);
+      points.push({ lat: latLng.lat(), lng: latLng.lng() });
+    }
+    const bounds = new window.google.maps.LatLngBounds();
+    points.forEach((p) => bounds.extend(new window.google.maps.LatLng(p.lat, p.lng)));
+    const center = bounds.getCenter();
+
+    setDetecting(true);
+    new window.google.maps.Geocoder().geocode({ location: center }, (results, status) => {
+      setDetecting(false);
+      if (status === "OK" && results?.[0]) {
+        const name = getLocationName(results[0].address_components) || results[0].formatted_address.split(",")[0];
+        setSuggestedName(name);
+      } else setSuggestedName(territory?.name || "");
+      setCoords(points);
+      setCenterLL({ lat: center.lat(), lng: center.lng() });
+      setSavingUIOpen(true);
+      setDrawingMode(false);
+      event.overlay.setMap(null);
+    });
+  }, [territory]);
+
+  const handleSearch = useCallback(() => {
+    if (!searchQuery.trim() || !autocompleteService.current) return;
+
+    const bounds = new window.google.maps.LatLngBounds(
+      new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+      new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+    );
+    autocompleteService.current.getPlacePredictions(
+      {
+        input: searchQuery,
+        componentRestrictions: { country: "us" },
+        bounds,
+        types: ["geocode"],
+      },
+      (predictions, status) => {
+        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
+          setSearchResults([]);
+          setShowSearchResults(false);
+          return;
+        }
+        setSearchResults(predictions);
+        setShowSearchResults(true);
+      }
+    );
+  }, [searchQuery]);
+
+  const handleSelectResult = useCallback((placeId) => {
+    if (!placesService.current) return;
+    placesService.current.getDetails({ placeId }, (place, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && place.geometry) {
+        const loc = place.geometry.location;
+        const bounds = new window.google.maps.LatLngBounds(
+          new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+          new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+        );
+        const inBounds = bounds.contains(loc);
+        const target = inBounds ? loc : new window.google.maps.LatLng(HOUSTON_CENTER.lat, HOUSTON_CENTER.lng);
+        mapRef.current?.panTo(target);
+        mapRef.current?.setZoom(12);
+        setShowSearchResults(false);
+        setSearchQuery(place.formatted_address || "");
+      }
+    });
+  }, []);
+
+  const startDrawing = useCallback(() => {
+    setCoords(null);
+    setCenterLL(null);
+    setSavingUIOpen(false);
+    setDrawingMode(true);
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.setMap(null);
+      radiusCircleRef.current = null;
+    }
+  }, []);
+
+  const cancelDrawing = useCallback(() => {
+    setDrawingMode(false);
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.setMap(null);
+      radiusCircleRef.current = null;
+    }
+    // Reset to original territory data
+    setCoords(territory?.polygon?.coordinates?.[0]?.map(toLatLng) || null);
+    setCenterLL(
+      territory?.center_lat && territory?.center_lng
+        ? { lat: Number(territory.center_lat), lng: Number(territory.center_lng) }
+        : null
+    );
+    setRadiusVal(territory?.radius || "");
+  }, [territory]);
+
+  const handleSelectCenterForRadius = useCallback(() => {
+    setDrawingMode(true);
+    toast("Click on the map to set the center point", { icon: "📍" });
+
+    const clickListener = mapRef.current.addListener("click", (e) => {
+      const p = e.latLng;
+      const bounds = new window.google.maps.LatLngBounds(
+        new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.south, SOUTH_CENTRAL_BOUNDS.west),
+        new window.google.maps.LatLng(SOUTH_CENTRAL_BOUNDS.north, SOUTH_CENTRAL_BOUNDS.east)
+      );
+      const inBounds = bounds.contains(p);
+      if (!inBounds) {
+        toast.error("Please select a point within the allowed region.");
+        return;
+      }
+
+      const center = { lat: p.lat(), lng: p.lng() };
+      setCenterLL(center);
+      setSavingUIOpen(true);
+
+      const meters = Number(radiusVal || 0) * 1000;
+      if (radiusCircleRef.current) radiusCircleRef.current.setMap(null);
+      radiusCircleRef.current = new window.google.maps.Circle({
+        center,
+        radius: meters,
+        fillOpacity: 0.25,
+        strokeWeight: 2,
+        strokeColor: color,
+        fillColor: color,
+        map: mapRef.current,
+      });
+
+      setDetecting(true);
+      new window.google.maps.Geocoder().geocode({ location: p }, (results, status) => {
+        setDetecting(false);
+        if (status === "OK" && results?.[0]) {
+          const name = getLocationName(results[0].address_components) || results[0].formatted_address.split(",")[0];
+          setSuggestedName(name);
+        } else setSuggestedName(territory?.name || "");
+      });
+
+      window.google.maps.event.removeListener(clickListener);
+      setDrawingMode(false);
+    });
+    gListenersRef.current.push(clickListener);
+  }, [color, radiusVal, territory]);
 
   const handleSave = async (e) => {
     e.preventDefault();
 
-    if (!name.trim()) {
-      toast.error("Please enter a territory name");
+    if (type === "polygon" && (!coords || coords.length < 3)) {
+      toast.error("Please draw a valid polygon with at least 3 points.");
       return;
+    }
+    if (type === "radius" && (!centerLL || !radiusVal || isNaN(radiusVal) || Number(radiusVal) <= 0)) {
+      toast.error("Please set a valid center point and radius.");
+      return;
+    }
+
+    const name = e.target.elements.name.value.trim() || suggestedName || territory?.name || "Territory";
+    const body = {
+      id: territory?.id,
+      name,
+      type,
+      color,
+      assigned_to: assignedUserId || null,
+      polygon: null,
+      radius: null,
+      center_lat: null,
+      center_lng: null,
+    };
+
+    if (type === "polygon") {
+      body.polygon = toGeoJSONPolygon(coords);
+    } else {
+      body.radius = Number(radiusVal);
+      body.center_lat = centerLL.lat;
+      body.center_lng = centerLL.lng;
     }
 
     try {
-      let payload;
-      if (type === "polygon") {
-        if (coords.length < 3) {
-          toast.error("A polygon needs at least 3 points");
-          return;
-        }
-        payload = {
-          name: name.trim(),
-          type: "polygon",
-          color,
-          polygon: {
-            type: "Polygon",
-            coordinates: [[
-              ...coords.map((p) => [p.lng, p.lat]),
-              [coords[0].lng, coords[0].lat],
-            ]],
-          },
-        };
-      } else {
-        if (!center || radius <= 0) {
-          toast.error("Please set a valid center and radius");
-          return;
-        }
-        payload = {
-          name: name.trim(),
-          type: "radius",
-          radius,
-          color,
-          center_lat: center.lat,
-          center_lng: center.lng,
-        };
-      }
-
-      // === API UPDATE CALL (by id) ===
-      await updateItem({ id, payload }).unwrap();
-      toast.success("Territory updated successfully!");
-      setIsEditing(false);
-      refetch(); // get latest from server
+      const res = await updateItem({ id: territory?.id, payload: body }).unwrap();
+      toast.success(res?.message || "Territory updated successfully.");
+      setSavingUIOpen(false);
+      onClose?.();
     } catch (err) {
-      console.error("Update error:", err);
-      toast.error(err?.data?.message || "Failed to update territory");
+      console.error("Failed to update territory:", err);
+      toast.error(err?.data?.message || "Failed to update territory.");
     }
   };
 
-  // === Extra map helpers ===
-  const zoomIn = () => {
-    const m = mapObjRef.current;
-    if (!m) return;
-    m.setZoom(m.getZoom() + 1);
-  };
-  const zoomOut = () => {
-    const m = mapObjRef.current;
-    if (!m) return;
-    m.setZoom(m.getZoom() - 1);
-  };
-  const centerMap = () => {
-    const m = mapObjRef.current;
-    if (!m) return;
-    if (type === "polygon" && coords.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      coords.forEach((c) => bounds.extend(c));
-      if (!bounds.isEmpty()) m.fitBounds(bounds);
-    } else if (type === "radius" && center) {
-      m.setCenter(center);
-      m.setZoom(14);
-    } else {
-      m.setCenter(DEFAULT_CENTER);
-      m.setZoom(12);
-    }
+  const zoomIn = () => mapRef.current?.setZoom(mapRef.current.getZoom() + 1);
+  const zoomOut = () => mapRef.current?.setZoom(mapRef.current.getZoom() - 1);
+  const resetView = () => {
+    if (!mapRef.current) return;
+    mapRef.current.panTo(HOUSTON_CENTER);
+    mapRef.current.setZoom(DEFAULT_ZOOM);
   };
 
-  const changeTerritoryType = (newType) => {
-    if (isEditing) {
-      toast.error("Finish editing before changing territory type");
-      return;
-    }
-    setType(newType);
-    toast.success(`Territory type changed to ${newType}`);
-
-    const territory = apiRes?.data;
-    if (territory && mapObjRef.current) {
-      const next = { ...territory, type: newType };
-      loadTerritoryData(mapObjRef.current, next);
-    }
-  };
-
-  if (!open) return null;
-
-  const hasApiTerritory = Boolean(apiRes?.data);
+  if (!open || !window.google) return null;
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900">
-      <div
-        className={`rounded-xl shadow-2xl relative flex flex-col z-[999] transition-all duration-300 overflow-hidden ${
-          isFullscreen ? "w-full h-full" : "w-full max-w-6xl h-[90vh]"
-        } bg-gray-800 text-gray-200`}
-      >
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b rounded-t-xl bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <MapPin size={20} />
-            {hasApiTerritory ? "Edit Territory" : "Create Territory"}
-            <span className="ml-2 text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: {id}</span>
-          </h2>
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">
+      <div className="relative w-full max-w-6xl max-h-[90vh] rounded-xl overflow-hidden shadow-2xl">
+        <Toaster position="top-right" />
+        <GoogleMap
+          mapContainerStyle={{ width: "100%", height: "100%" }}
+          center={HOUSTON_CENTER}
+          zoom={DEFAULT_ZOOM}
+          onLoad={onMapLoad}
+          onUnmount={onMapUnmount}
+          options={{
+            ...BASE_MAP_OPTIONS,
+            mapTypeId: mapType,
+            restriction: {
+              latLngBounds: SOUTH_CENTRAL_BOUNDS,
+              strictBounds: true,
+            },
+          }}
+        >
+          {drawingMode && (
+            <DrawingManager
+              onPolygonComplete={handlePolygonComplete}
+              options={{
+                drawingMode: type === "polygon" ? window.google.maps.drawing.OverlayType.POLYGON : null,
+                drawingControl: false,
+                polygonOptions: {
+                  fillColor: color,
+                  fillOpacity: 0.25,
+                  strokeWeight: 2,
+                  strokeColor: color,
+                  clickable: false,
+                  editable: true,
+                  zIndex: 1,
+                },
+              }}
+            />
+          )}
+          {type === "radius" && centerLL && radiusVal && (
+            <Circle
+              center={centerLL}
+              radius={Number(radiusVal || 0) * 1000}
+              options={{
+                fillColor: color,
+                fillOpacity: 0.25,
+                strokeWeight: 2,
+                strokeColor: color,
+              }}
+            />
+          )}
+          {type === "polygon" && coords && !drawingMode && (
+            <Polygon
+              paths={coords}
+              options={{
+                fillColor: color,
+                fillOpacity: 0.25,
+                strokeColor: color,
+                strokeWeight: 2,
+                clickable: false,
+                zIndex: 1,
+              }}
+            />
+          )}
+        </GoogleMap>
 
-          <div className="flex items-center gap-2">
-            {(isFetching || isDataLoading) && (
-              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">
-                <Loader2 size={12} className="animate-spin" /> fetching
-              </span>
+        {/* Top: Search + Controls toggle */}
+        <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <div className="flex items-center rounded-xl bg-white/95 backdrop-blur-md shadow-lg px-3 py-2">
+              <Search size={18} className="text-slate-500 mr-2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Search location..."
+                className="w-full bg-transparent text-sm text-slate-800 placeholder-slate-500 focus:outline-none"
+                aria-label="Search location"
+              />
+            </div>
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="absolute left-0 right-0 top-12 max-h-64 overflow-y-auto rounded-xl bg-white shadow-2xl border border-slate-200" role="listbox">
+                {searchResults.map((r) => (
+                  <button
+                    key={r.place_id}
+                    onClick={() => handleSelectResult(r.place_id)}
+                    className="w-full p-3 text-left text-slate-800 hover:bg-slate-100 transition-colors border-b border-slate-100 last:border-b-0"
+                    role="option"
+                  >
+                    <div className="text-sm font-medium">{r.structured_formatting?.main_text}</div>
+                    <div className="text-xs text-slate-500">{r.structured_formatting?.secondary_text}</div>
+                  </button>
+                ))}
+              </div>
             )}
-            
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded transition-colors text-yellow-300 hover:bg-gray-700"
-              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 rounded transition-colors text-gray-300 hover:bg-gray-700"
-              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            >
-              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            </button>
-
-            <button 
-              onClick={onClose} 
-              className="p-2 rounded transition-colors text-gray-300 hover:bg-gray-700"
-            >
-              <X size={18} />
-            </button>
           </div>
+          <button
+            onClick={() => setShowControls((v) => !v)}
+            className="p-2 ml-4 rounded-lg bg-white/90 backdrop-blur-md text-slate-700 hover:bg-white transition-colors shadow-lg"
+            title={showControls ? "Hide Controls" : "Show Controls"}
+          >
+            {showControls ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
         </div>
 
-        {/* Error state */}
-        {isError && (
-          <div className="p-6 text-red-400">
-            {(error && (error.data?.message || error.error)) || "Failed to load territory."}
-          </div>
-        )}
-
-        {/* Loading state */}
-        {isDataLoading && !isError ? (
-          <div className="flex items-center justify-center p-12 flex-col bg-gray-800">
-            <Loader2 className="animate-spin text-blue-500 mb-4" size={32} />
-            <span className="text-gray-400">Loading territory data...</span>
-          </div>
-        ) : (
-          <div className="flex flex-col md:flex-row h-full overflow-hidden">
-            {/* Sidebar */}
-            <div className="w-full md:w-80 border-r p-4 flex flex-col gap-4 overflow-y-auto bg-gray-800 border-gray-700">
+        {/* Left controls panel */}
+        {showControls && (
+          <div className="absolute top-20 left-4 z-20 bg-white/95 backdrop-blur-md rounded-xl p-4 shadow-lg">
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">
-                  Territory Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="border px-3 py-2 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                  placeholder="Enter territory name"
-                />
+                <h3 className="text-sm font-semibold text-slate-800 mb-2">Map Type</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "roadmap", label: "Road", icon: "🗺️" },
+                    { id: "hybrid", label: "Hybrid", icon: "🌎" },
+                    { id: "satellite", label: "Satellite", icon: "🛰️" },
+                    { id: "terrain", label: "Terrain", icon: "⛰️" },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setMapType(t.id)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-medium ${
+                        mapType === t.id ? "bg-indigo-100 text-indigo-700 border border-indigo-300" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                      }`}
+                      title={`Switch to ${t.label}`}
+                    >
+                      <span className="text-base mb-1">{t.icon}</span>
+                      <span>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">
-                  Territory Type
-                </label>
-                <div className="flex gap-2 mt-1">
+              <div className="border-t border-slate-200 pt-3">
+                <h3 className="text-sm font-semibold text-slate-800 mb-2">Territory Type</h3>
+                <div className="flex gap-2 mb-3">
                   <button
-                    type="button"
-                    onClick={() => changeTerritoryType("polygon")}
-                    className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center gap-1 text-sm ${
-                      type === "polygon"
-                        ? "bg-blue-800 text-blue-100 border border-blue-700"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
+                    onClick={() => setType("polygon")}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${type === "polygon" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
                   >
-                    <Square size={14} />
                     Polygon
                   </button>
                   <button
-                    type="button"
-                    onClick={() => changeTerritoryType("radius")}
-                    className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center gap-1 text-sm ${
-                      type === "radius"
-                        ? "bg-blue-800 text-blue-100 border border-blue-700"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
+                    onClick={() => setType("radius")}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${type === "radius" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
                   >
-                    <Circle size={14} />
                     Radius
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">
-                  Color
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setColor(val);
-                      if (territoryShapeRef.current) {
-                        territoryShapeRef.current.setOptions({ fillColor: val, strokeColor: val });
-                      }
-                    }}
-                    className="h-10 w-10 rounded cursor-pointer border border-gray-600 bg-gray-700"
-                  />
-                  <div className="flex-1 flex items-center gap-2 border rounded-md px-3 py-2 bg-gray-700 border-gray-600">
-                    <div className="h-4 w-4 rounded-sm" style={{ backgroundColor: color }}></div>
-                    <span className="text-sm font-mono">{color}</span>
+                {type === "radius" && (
+                  <div className="mb-3">
+                    <label className="block text-xs text-slate-600 mb-1">Radius (km)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      placeholder="10.3"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value={radiusVal}
+                      onChange={(e) => {
+                        setRadiusVal(e.target.value);
+                        if (radiusCircleRef.current) radiusCircleRef.current.setRadius(Number(e.target.value || 0) * 1000);
+                      }}
+                      aria-label="Enter radius in kilometers"
+                    />
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className="block text-xs text-slate-600 mb-1">Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      className="h-8 w-8 cursor-pointer rounded-md border-0 bg-transparent p-0"
+                      title={color}
+                      aria-label="Select territory color"
+                    />
+                    <span className="text-sm text-slate-700">{color}</span>
                   </div>
                 </div>
-              </div>
-
-              <div className="border-t pt-4 mt-2 border-gray-700">
-                <h3 className="font-medium mb-2 flex items-center gap-2 text-gray-300">
-                  <Layers size={16} />
-                  Territory Details
-                </h3>
-
-                {type === "radius" && center && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-300">
-                        Radius (km)
-                      </label>
-                      <input
-                        type="number"
-                        min="0.1"
-                        step="0.1"
-                        value={radius}
-                        onChange={(e) => {
-                          const newRadius = parseFloat(e.target.value || "0");
-                          setRadius(newRadius);
-                          if (territoryShapeRef.current) territoryShapeRef.current.setRadius(newRadius * 1000);
-                        }}
-                        className="border px-3 py-2 rounded-md w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 border-gray-600 text-white"
-                      />
-                    </div>
-
-                    <div className="text-sm p-2 rounded-md bg-blue-900 text-blue-100">
-                      <p className="font-medium">Center Coordinates</p>
-                      <p>Lat: {center.lat?.toFixed?.(6)}</p>
-                      <p>Lng: {center.lng?.toFixed?.(6)}</p>
-                    </div>
-                  </div>
-                )}
-
-                {type === "polygon" && coords.length > 0 && (
-                  <div className="text-sm p-2 rounded-md bg-blue-900 text-blue-100">
-                    <p className="font-medium">Polygon Details</p>
-                    <p>{coords.length} points</p>
-                    <p className="mt-1 text-xs opacity-75">
-                      Click Edit to modify the shape directly on the map
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-auto pt-4 border-t space-y-2 border-gray-700">
                 <div className="flex gap-2">
+                  {!drawingMode ? (
+                    <button
+                      onClick={() => (type === "polygon" ? startDrawing() : handleSelectCenterForRadius())}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                    >
+                      <Triangle size={16} /> {type === "polygon" ? "Redraw" : "Select Center"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={cancelDrawing}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-rose-600 text-white text-sm font-medium hover:bg-rose-700"
+                    >
+                      <X size={16} /> Cancel
+                    </button>
+                  )}
+                </div>
+                <div className="border-t border-slate-200 pt-3">
+                  <h3 className="text-sm font-semibold text-slate-800 mb-2">View Options</h3>
                   <button
-                    type="button"
-                    onClick={toggleEdit}
-                    disabled={!hasApiTerritory || !territoryShapeRef.current}
-                    className={`flex-1 py-2 px-4 rounded-md flex items-center justify-center gap-1 ${
-                      isEditing
-                        ? "bg-yellow-700 text-white hover:bg-yellow-600"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    } ${!hasApiTerritory ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <Edit3 size={16} />
-                    {isEditing ? "Editing..." : "Edit Shape"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={resetChanges}
-                    disabled={!isEditing}
-                    className={`flex-1 py-2 px-4 rounded-md flex items-center justify-center gap-1 ${
-                      !isEditing 
-                        ? "opacity-50 cursor-not-allowed" 
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    onClick={() => setProDetail((v) => !v)}
+                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium ${
+                      proDetail ? "bg-emerald-100 text-emerald-700 border border-emerald-300" : "bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200"
                     }`}
+                    title="Toggle Pro/HD detail (tilt)"
                   >
-                    <RotateCcw size={16} />
-                    Reset
+                    <Eye size={16} /> {proDetail ? "HD Mode: On" : "HD Mode: Off"}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Map nav controls */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
+          <button onClick={zoomIn} className="p-2 rounded-lg bg-white/90 text-slate-700 hover:bg-white shadow-lg" title="Zoom in">
+            <ZoomIn size={20} />
+          </button>
+          <button onClick={zoomOut} className="p-2 rounded-lg bg-white/90 text-slate-700 hover:bg-white shadow-lg" title="Zoom out">
+            <ZoomOut size={20} />
+          </button>
+          <button onClick={resetView} className="p-2 rounded-lg bg-white/90 text-slate-700 hover:bg-white shadow-lg" title="Reset view">
+            <Compass size={20} />
+          </button>
+        </div>
+
+        {/* Save Panel */}
+        {savingUIOpen && (coords || centerLL) && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-80 rounded-xl bg-white/95 p-5 shadow-xl border border-slate-200">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800">Update Territory</h3>
+              <button
+                onClick={() => {
+                  setSavingUIOpen(false);
+                  setCoords(territory?.polygon?.coordinates?.[0]?.map(toLatLng) || null);
+                  setCenterLL(
+                    territory?.center_lat && territory?.center_lng
+                      ? { lat: Number(territory.center_lat), lng: Number(territory.center_lng) }
+                      : null
+                  );
+                  setSuggestedName(territory?.name || "");
+                  setAssignedUserId(territory?.assigned_to || "");
+                  if (radiusCircleRef.current) {
+                    radiusCircleRef.current.setMap(null);
+                    radiusCircleRef.current = null;
+                  }
+                }}
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {detecting ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-slate-500">
+                <Loader2 className="animate-spin" /> Detecting location name…
+              </div>
+            ) : (
+              <form onSubmit={handleSave} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Territory Name *</label>
+                  <input
+                    name="name"
+                    defaultValue={suggestedName || territory?.name || ""}
+                    placeholder="e.g., Downtown Dallas"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Assign to User</label>
+                  {isLoadingUsers ? (
+                    <div className="text-xs text-slate-500">Loading users…</div>
+                  ) : isUsersError ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-rose-600">Failed to load users</span>
+                      <button
+                        type="button"
+                        className="text-xs px-2 py-1 rounded border border-slate-300"
+                        onClick={() => refetchUsers()}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : users.length === 0 ? (
+                    <div className="text-xs text-slate-500">No users found</div>
+                  ) : (
+                    <select
+                      value={assignedUserId}
+                      onChange={(e) => setAssignedUserId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">-- Select User --</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || u.email || `User #${u.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                {type === "polygon" && coords && (
+                  <div className="text-xs text-slate-500">{coords.length} points selected</div>
+                )}
+                <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-600 space-y-1">
+                  <div className="flex justify-between"><span>Type:</span><span className="font-medium text-slate-800">{type}</span></div>
+                  {type === "radius" && (
+                    <div className="flex justify-between"><span>Radius:</span><span className="font-medium text-slate-800">{radiusVal || 0} km</span></div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Color:</span>
+                    <span className="font-medium inline-block w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: color }} />
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Center:</span>
+                    <span className="font-medium text-slate-800">
+                      {centerLL ? `${centerLL.lat.toFixed(4)}, ${centerLL.lng.toFixed(4)}` : "—"}
+                    </span>
+                  </div>
+                </div>
                 <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isSaving || !hasApiTerritory}
-                  className="w-full py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 bg-blue-800 text-white hover:bg-blue-700"
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
                 >
-                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  <Save size={16} /> {isSaving ? "Saving..." : "Update Territory"}
                 </button>
-              </div>
-            </div>
-
-            {/* Map Area */}
-            <div className="flex-1 relative">
-              <div ref={mapRef} className="h-full w-full min-h-[500px]" />
-
-              <div className="absolute right-4 bottom-4 flex flex-col gap-2 rounded-lg shadow-md p-2 border bg-gray-800 border-gray-700">
-                <button 
-                  onClick={zoomIn} 
-                  className="p-2 rounded-md transition-colors text-gray-300 hover:bg-gray-700" 
-                  title="Zoom in"
-                >
-                  <ZoomIn size={18} />
-                </button>
-                <button 
-                  onClick={zoomOut} 
-                  className="p-2 rounded-md transition-colors text-gray-300 hover:bg-gray-700" 
-                  title="Zoom out"
-                >
-                  <ZoomOut size={18} />
-                </button>
-                <button 
-                  onClick={centerMap} 
-                  className="p-2 rounded-md transition-colors text-gray-300 hover:bg-gray-700" 
-                  title="Recenter map"
-                >
-                  <Navigation size={18} />
-                </button>
-              </div>
-
-              {!scriptLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center flex-col bg-gray-800/80 text-gray-300">
-                  <Loader2 className="animate-spin text-blue-500 mb-4" size={32} />
-                  <span>Loading maps...</span>
-                </div>
-              )}
-
-              {isEditing && (
-                <div className="absolute top-4 left-4 p-3 rounded-lg shadow-md max-w-xs bg-gray-800 text-gray-200 border border-gray-700">
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
-                    <Edit3 size={16} />
-                    {type === "polygon" ? "Editing Polygon" : "Editing Circle"}
-                  </h4>
-                  <p className="text-sm text-gray-400">
-                    {type === "polygon"
-                      ? "Drag the points to reshape the territory. Click on a line to add new points."
-                      : "Drag the center to move or drag the edge to resize the circle."}
-                  </p>
-                  <button 
-                    onClick={toggleEdit} 
-                    className="mt-2 text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
-                  >
-                    Done Editing
-                  </button>
-                </div>
-              )}
-            </div>
+              </form>
+            )}
           </div>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default TerritoryMapUpdate;

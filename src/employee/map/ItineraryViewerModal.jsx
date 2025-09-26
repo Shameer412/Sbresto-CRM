@@ -23,7 +23,7 @@ import FormModel from "./FormModel";
 // ----------------------
 // Helpers
 // ----------------------
-const FALLBACK_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
+const FALLBACK_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const toLatLng = ([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) });
 const extractPolygonPath = (polygon) => (polygon?.coordinates?.[0] || []).map(toLatLng);
@@ -59,6 +59,12 @@ export default function ItineraryViewerModalGoogleV2({
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState(null);
 
+  // Location permission state
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationPermissionModal, setLocationPermissionModal] = useState(true);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState({ user_lat: null, user_long: null });
+
   // Edit existing house
   const [editHouseId, setEditHouseId] = useState(null);
   const [editFields, setEditFields] = useState({
@@ -93,12 +99,6 @@ export default function ItineraryViewerModalGoogleV2({
     homeowner_confirmed: "",
     length_of_residence: "",
   });
-
-  // Location permission state
-  const [locationPermissionModal, setLocationPermissionModal] = useState(false);
-  const [locationPermissionAction, setLocationPermissionAction] = useState(null);
-  const [locationPermissionHouseId, setLocationPermissionHouseId] = useState(null);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
 
   const [itinerary, setItinerary] = useState(null);
   useEffect(() => {
@@ -152,6 +152,37 @@ export default function ItineraryViewerModalGoogleV2({
     googleMapsApiKey: apiKey,
     libraries: ["drawing", "places", "geometry"],
   });
+
+  // Handle location permission response
+  const handleLocationPermissionResponse = useCallback(async (allowed) => {
+    if (!allowed) {
+      // Keep the modal open if permission is denied
+      setLocationPermissionModal(true);
+      return;
+    }
+
+    setIsRequestingLocation(true);
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      setUserLocation({ user_lat: latitude, user_long: longitude });
+      setLocationPermissionGranted(true);
+      setLocationPermissionModal(false);
+    } catch (error) {
+      console.error("Error getting location:", error);
+      alert("Could not get your location. Please check your device settings.");
+      setLocationPermissionModal(true); // Keep modal open on error
+    } finally {
+      setIsRequestingLocation(false);
+    }
+  }, []);
 
   // Fit bounds
   const fitEverything = useCallback(
@@ -267,74 +298,6 @@ export default function ItineraryViewerModalGoogleV2({
     [onAddLead]
   );
 
-  // ==== LOCATION PERMISSION HANDLING ====
-  const requestLocationPermission = useCallback((action, houseId = null) => {
-    setLocationPermissionAction(action);
-    setLocationPermissionHouseId(houseId);
-    setLocationPermissionModal(true);
-  }, []);
-
-  const handleLocationPermissionResponse = useCallback(async (allowed) => {
-    setLocationPermissionModal(false);
-    
-    if (!allowed) return;
-    
-    setIsRequestingLocation(true);
-    
-    try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        });
-      });
-      
-      const { latitude, longitude } = position.coords;
-      
-      if (locationPermissionAction === 'edit') {
-  // Update the house with user's location - include itineraryId
-  await updateHouseInfo({
-    itineraryId: item?.id, // Add the itinerary ID
-    id: locationPermissionHouseId, // House ID
-    user_lat: latitude,
-    user_long: longitude
-  }).unwrap();
-        
-       // Update local state
-  setItinerary((prev) => {
-    if (!prev) return prev;
-    const updated = { ...prev };
-    updated.houses = (updated.houses || []).map((h) =>
-      h.id === locationPermissionHouseId 
-        ? { ...h, user_lat: latitude, user_long: longitude } 
-        : h
-    );
-    return updated;
-  });
-        
-          setSelectedHouse((prev) =>
-    prev && prev.id === locationPermissionHouseId 
-      ? { ...prev, user_lat: latitude, user_long: longitude } 
-      : prev
-  );
-}
-      else if (locationPermissionAction === 'create') {
-        // Update new house fields with user's location
-        setNewHouseFields(prev => ({
-          ...prev,
-          latitude: String(latitude),
-          longitude: String(longitude)
-        }));
-      }
-    } catch (error) {
-      console.error("Error getting location:", error);
-      alert("Could not get your location. Please check your device settings.");
-    } finally {
-      setIsRequestingLocation(false);
-    }
-  }, [locationPermissionAction, locationPermissionHouseId, updateHouseInfo]);
-
   // ==== EDIT EXISTING HOUSE ====
   const startEdit = (h) => {
     setEditHouseId(h.id);
@@ -362,17 +325,17 @@ export default function ItineraryViewerModalGoogleV2({
     try {
       const payload = {
         id: houseId,
+        itineraryId: item?.id,
         first_name: editFields.first_name || null,
         last_name: editFields.last_name || null,
         email: editFields.email || null,
         phone: editFields.phone || null,
         notes: editFields.notes || null,
+        user_lat: userLocation.user_lat,
+        user_long: userLocation.user_long,
       };
 
-      await updateHouseInfo({
-        itineraryId: item?.id,
-        ...payload
-      }).unwrap();
+      await updateHouseInfo(payload).unwrap();
 
       // Optimistic update
       setItinerary((prev) => {
@@ -395,8 +358,6 @@ export default function ItineraryViewerModalGoogleV2({
   };
 
   // ==== CREATE NEW HOUSE ====
-
-  // seed draft + open modal (usable from map click or marker action)
   const openCreateFormAt = useCallback((lat, lng) => {
     setNewHouseFields({
       first_name: "",
@@ -416,7 +377,7 @@ export default function ItineraryViewerModalGoogleV2({
     setNewHouseModalOpen(true);
   }, [item?.id]);
 
-  // MAP CLICK: ab territory check hataya — kahin bhi click par form
+  // MAP CLICK: Open create form at clicked location
   const handleMapClick = useCallback(
     (e) => {
       const latLng = e?.latLng;
@@ -443,6 +404,8 @@ export default function ItineraryViewerModalGoogleV2({
         home_value: newHouseFields.home_value || null,
         homeowner_confirmed: newHouseFields.homeowner_confirmed || null,
         length_of_residence: newHouseFields.length_of_residence || null,
+        user_lat: userLocation.user_lat,
+        user_long: userLocation.user_long,
       };
 
       const res = await createHouse(body).unwrap();
@@ -466,6 +429,8 @@ export default function ItineraryViewerModalGoogleV2({
           home_value: newObj?.home_value ?? body.home_value,
           homeowner_confirmed: newObj?.homeowner_confirmed ?? body.homeowner_confirmed,
           length_of_residence: newObj?.length_of_residence ?? body.length_of_residence,
+          user_lat: newObj?.user_lat ?? body.user_lat,
+          user_long: newObj?.user_long ?? body.user_long,
           status: newObj?.status ?? null,
           notes: newObj?.notes ?? null,
           position: {
@@ -485,6 +450,54 @@ export default function ItineraryViewerModalGoogleV2({
 
   if (!open) return null;
 
+  // Show location permission modal until permission is granted
+  if (!locationPermissionGranted) {
+    return (
+      <div className="fixed inset-0 z-[1010] flex items-center justify-center bg-black/70">
+        <div className="bg-gray-900 text-white w-full max-w-md rounded-xl shadow-xl p-6">
+          <div className="flex items-center justify-center mb-4">
+            <Navigation2 className="w-10 h-10 text-blue-400" />
+          </div>
+
+          <h3 className="text-xl font-semibold text-center mb-2">Location Access Required</h3>
+
+          <p className="text-gray-300 text-center mb-5">
+            This application requires access to your current location to proceed. Your location will be used to record coordinates for houses you create or edit.
+          </p>
+
+          <p className="text-gray-400 text-sm text-center mb-6">
+            Please allow location access to continue using the map.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleClose()}
+              disabled={isRequestingLocation}
+              className="flex-1 rounded-md bg-gray-700 hover:bg-gray-600 text-white font-medium py-3"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleLocationPermissionResponse(true)}
+              disabled={isRequestingLocation}
+              className="flex-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 flex items-center justify-center gap-2"
+            >
+              {isRequestingLocation ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Getting Location...
+                </>
+              ) : (
+                "Allow Location Access"
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main map UI (rendered only after location permission is granted)
   return (
     <div
       className={`fixed inset-0 z-[999] flex items-center justify-center ${
@@ -508,7 +521,7 @@ export default function ItineraryViewerModalGoogleV2({
               gestureHandling: "greedy",
               mapTypeId: mapType,
               clickableIcons: false,
-              disableDoubleClickZoom: true, // no zoom on double click
+              disableDoubleClickZoom: true,
               styles:
                 mapType === "satellite"
                   ? []
@@ -594,7 +607,7 @@ export default function ItineraryViewerModalGoogleV2({
                     onCloseClick={() => setHoveredHouseId(null)}
                     options={{
                       pixelOffset: new window.google.maps.Size(0, -10),
-                      disableAutoPan: true, // prevent map auto-pan
+                      disableAutoPan: true,
                     }}
                   >
                     <div
@@ -706,9 +719,6 @@ export default function ItineraryViewerModalGoogleV2({
                             <div><span className="font-medium">User Location:</span> {h.user_lat && h.user_long ? "Recorded" : "Not recorded"}</div>
                           </div>
 
-                          {/* NEW: Create form from this house location (works even if outside territory) */}
-                         
-
                           <button
                             type="button"
                             onClick={(e) => {
@@ -732,18 +742,6 @@ export default function ItineraryViewerModalGoogleV2({
                             className="mt-2 w-full rounded-md bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-3 py-2"
                           >
                             Edit House
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              requestLocationPermission('edit', h.id);
-                            }}
-                            className="mt-2 w-full rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-3 py-2 flex items-center justify-center gap-1"
-                          >
-                            <Navigation2 className="w-4 h-4" />
-                            Record My Location
                           </button>
                         </>
                       )}
@@ -897,21 +895,11 @@ export default function ItineraryViewerModalGoogleV2({
 
               <div className="col-span-1">
                 <label className="text-xs text-gray-300 font-medium">Latitude</label>
-                <div className="flex gap-1">
-                  <input
-                    className="flex-1 border border-gray-700 rounded px-2 py-1 bg-gray-800 text-white"
-                    value={newHouseFields.latitude}
-                    readOnly
-                  />
-                  <button
-                    type="button"
-                    onClick={() => requestLocationPermission('create')}
-                    className="p-1 bg-blue-600 hover:bg-blue-700 rounded"
-                    title="Use my current location"
-                  >
-                    <Navigation2 className="w-4 h-4" />
-                  </button>
-                </div>
+                <input
+                  className="w-full border border-gray-700 rounded px-2 py-1 bg-gray-800 text-white"
+                  value={newHouseFields.latitude}
+                  readOnly
+                />
               </div>
               <div className="col-span-1">
                 <label className="text-xs text-gray-300 font-medium">Longitude</label>
@@ -1015,51 +1003,6 @@ export default function ItineraryViewerModalGoogleV2({
             <div className="mt-3 text-xs text-gray-300">
               <div>Itinerary ID: <span className="font-mono">{newHouseFields.itinerary_id ?? "—"}</span></div>
               <div>Lat/Lng set by map click (auto).</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Location Permission Modal */}
-      {locationPermissionModal && (
-        <div className="fixed inset-0 z-[1010] flex items-center justify-center bg-black/70">
-          <div className="bg-gray-900 text-white w-full max-w-md rounded-xl shadow-xl p-6">
-            <div className="flex items-center justify-center mb-4">
-              <Navigation2 className="w-10 h-10 text-blue-400" />
-            </div>
-            
-            <h3 className="text-xl font-semibold text-center mb-2">Location Access Needed</h3>
-            
-            <p className="text-gray-300 text-center mb-5">
-              This action requires access to your current location. We'll use this to record your coordinates when {locationPermissionAction === 'edit' ? 'updating this house' : 'creating a new prospect'}.
-            </p>
-            
-            <p className="text-gray-400 text-sm text-center mb-6">
-              Your location data will be stored with the record and used for verification purposes.
-            </p>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleLocationPermissionResponse(false)}
-                disabled={isRequestingLocation}
-                className="flex-1 rounded-md bg-gray-700 hover:bg-gray-600 text-white font-medium py-3"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleLocationPermissionResponse(true)}
-                disabled={isRequestingLocation}
-                className="flex-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 flex items-center justify-center gap-2"
-              >
-                {isRequestingLocation ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Getting Location...
-                  </>
-                ) : (
-                  "Allow Location Access"
-                )}
-              </button>
             </div>
           </div>
         </div>

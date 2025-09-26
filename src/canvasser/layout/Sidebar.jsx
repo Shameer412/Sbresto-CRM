@@ -188,6 +188,16 @@ const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen }) => {
                       <span className="db-nav-text1">Territory List</span>
                     </NavLink>
                   </li>
+                   <li>
+                    <NavLink
+                      to="/prospectview"
+                      className={({ isActive }) => isActive ? 'db-active' : ''}
+                      onClick={handleNavClick}
+                    >
+                      <FiMap size={18} />
+                      <span className="db-nav-text1">Prospect View</span>
+                    </NavLink>
+                  </li>
                 </ul>
               )}
             </li>
