@@ -44,6 +44,7 @@ import EmployeeMeetinglist from './employee/calender/MeetingList.jsx';
 
 // Part2 Admin Dashboard Components
 import AdminDashboard from './part2/admin/dashboard/Layout';
+import MapExport from './part2/admin/map/CreateRoute';
 
 // Part2 Employee Dashboard Components
 import PoliticalDashboard from './part2/employees/layout/Layout';
@@ -55,6 +56,7 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const AppRoutes = () => {
   return (
     <Routes>
+      <Route path="/map-export" element={<MapExport />} />
       <Route path="/admin" element={<AdminDashboard />} />
        <Route path="/political-dashboard" element={<PoliticalDashboard />} />
       <Route path="/register/:token" element={<SignUp />} />
