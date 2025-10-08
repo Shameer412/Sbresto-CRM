@@ -42,6 +42,11 @@ import EmployeeSchedule from './employee/calender/Schedule.jsx';
 import EmployeeTerritoryList from './employee/map/TerritoryList.jsx';
 import EmployeeMeetinglist from './employee/calender/MeetingList.jsx';
 
+// Part2 Admin Dashboard Components
+import AdminDashboard from './part2/admin/dashboard/Layout';
+
+// Part2 Employee Dashboard Components
+import PoliticalDashboard from './part2/employees/layout/Layout';
 // Static libraries array to prevent reload
 const LIBRARIES = ['drawing', 'places', 'geometry'];
 
@@ -50,6 +55,8 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const AppRoutes = () => {
   return (
     <Routes>
+      <Route path="/admin" element={<AdminDashboard />} />
+       <Route path="/political-dashboard" element={<PoliticalDashboard />} />
       <Route path="/register/:token" element={<SignUp />} />
       <Route path="/login" element={<Login />} />
       <Route
@@ -109,7 +116,10 @@ const AppRoutes = () => {
         <Route path="meeting/list" element={<EmployeeMeetinglist />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" />} />
+      {/* Admin Dashboard Route */}
+      <Route path="/admin  " element={<AdminDashboard />} /> 
     </Routes>
+
   );
 };
 
