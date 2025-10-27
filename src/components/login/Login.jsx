@@ -9,6 +9,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useLoginUserMutation } from '../../features/api/apiSlice';
 import Logo from '../../assets/logo.jpg';
+
 const Login = () => {
   const [loginFormData, setLoginFormData] = useState({ 
     email: '', 
@@ -45,11 +46,13 @@ const Login = () => {
       const result = await loginUser(loginFormData).unwrap();
 
       if (result.success && result.data?.token) {
-        sessionStorage.setItem('authToken', result.data.token)
+        sessionStorage.setItem('authToken', result.data.token);
         dispatch(setToken(result.data.token));
         dispatch(setUser(result.data.user));
 
+        // Role aur Company ka naam hasil karein
         const role = (result.data.role || '').toLowerCase();
+        const companyName = (result.data.user?.company?.name || '').toLowerCase();
 
         toast.success('Login Successful!', { 
           autoClose: 1200,
@@ -57,12 +60,21 @@ const Login = () => {
           bodyClassName: 'toast-success-body'
         });
 
+        // --- YEH HISSA BADLA GAYA HAI ---
         setTimeout(() => {
-          if (role === 'admin') {
+          // 1. Sab se pehle Political Canvassing ke admin ko check karein
+          if (companyName === 'political canvassing' && role === 'admin') {
+            navigate('/political-dashboard');
+          
+          // 2. Phir baaqi sab admins (jaise SBRESTO) ko check karein
+          } else if (role === 'admin') {
             navigate('/');
           
+          // 3. Phir doosre roles ko check karein
           } else if (role === 'salesperson' || role === 'canvasser') {
             navigate('/employee');
+          
+          // 4. Agar koi role match na ho
           } else {
             toast.error('Unknown role! Contact admin.', {
               className: 'toast-error-role',
@@ -70,6 +82,8 @@ const Login = () => {
             });
           }
         }, 1000);
+        // --- BADLA HUA HISSA YAHAN KHATAM ---
+
       } else {
         toast.error(result.message || 'Login failed', {
           className: 'toast-error-generic',
@@ -112,7 +126,7 @@ const Login = () => {
              <img src={Logo} alt="Southern Belle Logo"  width="150px" height="130px"/>
           </div>
           <h1 className="sbr-company-name">Southern Belle </h1>
-          <p className="sbr-company-tagline">Building relationships far beyond any single project.</p>
+          <p className="sbr-company-tagline">Building relationships far beyond any single project.</p>
         </div>
         <form onSubmit={handleSubmit} className="sbr-login-form">
           <div className="sbr-form-group">

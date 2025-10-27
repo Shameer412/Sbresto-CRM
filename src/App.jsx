@@ -48,6 +48,12 @@ import MapExport from './part2/admin/map/CreateRoute';
 
 // Part2 Employee Dashboard Components
 import PoliticalDashboard from './part2/employees/layout/Layout';
+// Test Components
+import Survey from './part2/test/Survey.jsx';
+import SurveyForm from './part2/test/SurveyForm.jsx';
+
+
+
 // Static libraries array to prevent reload
 const LIBRARIES = ['drawing', 'places', 'geometry'];
 
@@ -56,11 +62,14 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const AppRoutes = () => {
   return (
     <Routes>
+      <Route path="/survey" element={<Survey />} />
+      <Route path="/survey-form" element={<SurveyForm />} />
       <Route path="/map-export" element={<MapExport />} />
       <Route path="/admin" element={<AdminDashboard />} />
        <Route path="/political-dashboard" element={<PoliticalDashboard />} />
       <Route path="/register/:token" element={<SignUp />} />
       <Route path="/login" element={<Login />} />
+
       <Route
         path="/schedule"
         element={
