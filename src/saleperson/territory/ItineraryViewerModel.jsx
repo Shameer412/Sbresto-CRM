@@ -18,7 +18,7 @@ import { useUpdateItineraryHouseInfoMutation } from "../../features/territory/Te
 // ----------------------
 // Helpers
 // ----------------------
-const FALLBACK_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
+const FALLBACK_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const toLatLng = ([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) });
 const extractPolygonPath = (polygon) => (polygon?.coordinates?.[0] || []).map(toLatLng);

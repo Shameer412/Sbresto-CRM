@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { 
-  MapPin, Edit3, Trash2, Eye, EyeOff, Search, 
-  Download, Upload, Layers, Triangle, Map, X, 
-  ChevronDown, ChevronRight, Save, Loader2 
+import {
+  MapPin, Edit3, Trash2, Eye, EyeOff, Search,
+  Download, Upload, Layers, Triangle, Map, X,
+  ChevronDown, ChevronRight, Save, Loader2
 } from "lucide-react";
 import TerritoryDetailMapModal from "./DetailedTerritory"; // Make sure this file is present
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 function loadScript(src) {
   if (document.querySelector(`script[src="${src}"]`)) return;
@@ -18,7 +18,7 @@ function loadScript(src) {
 
 const TerritoryCreator = () => {
   const [detailedTerritory, setDetailedTerritory] = useState(null);
-  
+
   const [territories, setTerritories] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
@@ -44,7 +44,7 @@ const [selectedTerritory, setSelectedTerritory] = useState(null);
   const placesService = useRef(null);
 
   const colors = [
-    "#3B82F6", "#EF4444", "#10B981", "#F59E0B", 
+    "#3B82F6", "#EF4444", "#10B981", "#F59E0B",
     "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"
   ];
 
@@ -118,11 +118,11 @@ const [selectedTerritory, setSelectedTerritory] = useState(null);
                 if (status === "OK" && results[0]) {
                   const address = results[0].address_components;
                   let name = "";
-                  
+
                   const neighborhood = address.find(c => c.types.includes("neighborhood"));
                   const locality = address.find(c => c.types.includes("locality"));
                   const adminArea = address.find(c => c.types.includes("administrative_area_level_2"));
-                  
+
                   if (neighborhood) {
                     name = neighborhood.long_name;
                   } else if (locality) {
@@ -132,7 +132,7 @@ const [selectedTerritory, setSelectedTerritory] = useState(null);
                   } else {
                     name = results[0].formatted_address.split(",")[0];
                   }
-                  
+
                   setSuggestedName(name);
                 } else {
                   setSuggestedName(`Territory ${territories.length + 1}`);
@@ -167,7 +167,7 @@ const [selectedTerritory, setSelectedTerritory] = useState(null);
 // When clicking on a territory
 const handleTerritoryClick = (territory) => {
   setSelectedTerritory(territory);
- 
+
 };
   // Handle search functionality
   const handleSearch = () => {
@@ -233,10 +233,10 @@ const handleTerritoryClick = (territory) => {
 
   const toggleDrawing = () => {
     if (!window.drawingManagerInstance) return;
-    
+
     const newMode = !drawingMode;
     setDrawingMode(newMode);
-    
+
     if (newMode) {
       window.drawingManagerInstance.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
     } else {
@@ -299,9 +299,9 @@ const handleTerritoryClick = (territory) => {
   const exportTerritories = () => {
     const dataStr = JSON.stringify(territories, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
+
     const exportFileDefaultName = `territories-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -323,7 +323,7 @@ const handleTerritoryClick = (territory) => {
     }
   };
 
-  const filteredTerritories = territories.filter(t => 
+  const filteredTerritories = territories.filter(t =>
     activeTab === "all" || (activeTab === "visible" ? t.visible : !t.visible)
   );
 
@@ -335,7 +335,7 @@ const handleTerritoryClick = (territory) => {
             <h1 className="text-2xl md:text-3xl font-bold text-white">Territory Creator</h1>
             <p className="text-gray-400 text-sm">Draw, manage and analyze your territories</p>
           </div>
-          
+
           <div className="flex gap-2 w-full md:w-auto">
             <button
               onClick={() => setImportExportModal(true)}
@@ -346,7 +346,7 @@ const handleTerritoryClick = (territory) => {
             </button>
           </div>
         </div>
-        
+
         <div className="relative mb-8">
           <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 w-full max-w-xs">
             <div className="relative">
@@ -367,7 +367,7 @@ const handleTerritoryClick = (territory) => {
                   <Search size={18} />
                 </button>
               </div>
-              
+
               {showSearchResults && searchResults.length > 0 && (
                 <div className="absolute top-12 left-0 w-full bg-gray-800 backdrop-blur-lg rounded-lg border border-gray-700 shadow-xl z-20 max-h-60 overflow-y-auto">
                   {searchResults.map((result) => (
@@ -383,13 +383,13 @@ const handleTerritoryClick = (territory) => {
                 </div>
               )}
             </div>
-            
+
             <div className="flex gap-2">
               <button
                 onClick={toggleDrawing}
                 className={`px-4 py-2 rounded-lg font-medium transition-all shadow-lg flex-1 flex items-center justify-center gap-2 ${
-                  drawingMode 
-                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  drawingMode
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
                     : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                 }`}
               >
@@ -407,7 +407,7 @@ const handleTerritoryClick = (territory) => {
               </button>
             </div>
           </div>
-          
+
           <div
             className="rounded-xl overflow-hidden shadow-xl border border-gray-700"
             style={{ minHeight: 500, background: "#1f2937" }}
@@ -419,7 +419,7 @@ const handleTerritoryClick = (territory) => {
         <div className="bg-gray-800 backdrop-blur-xl rounded-xl border border-gray-700 p-4 md:p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <h2 className="text-xl md:text-2xl font-bold text-white">Your Territories</h2>
-            
+
             <div className="flex gap-2 bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => setActiveTab("all")}
@@ -441,13 +441,13 @@ const handleTerritoryClick = (territory) => {
               </button>
             </div>
           </div>
-          
+
           {filteredTerritories.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              {activeTab === "all" 
-                ? "No territories created yet. Click 'Draw' to get started!" 
-                : activeTab === "visible" 
-                  ? "No visible territories" 
+              {activeTab === "all"
+                ? "No territories created yet. Click 'Draw' to get started!"
+                : activeTab === "visible"
+                  ? "No visible territories"
                   : "No hidden territories"}
             </div>
           ) : (
@@ -458,8 +458,8 @@ const handleTerritoryClick = (territory) => {
                     <div>
                       <h3 className="font-bold text-white flex items-center gap-2">
                         {territory.name}
-                        <span 
-                          className="w-3 h-3 rounded-full inline-block" 
+                        <span
+                          className="w-3 h-3 rounded-full inline-block"
                           style={{ backgroundColor: territory.color || color }}
                         />
                       </h3>
@@ -497,7 +497,7 @@ const handleTerritoryClick = (territory) => {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="bg-gray-600/50 rounded-lg p-2">
                       <div className="text-gray-400 flex items-center gap-1">
@@ -702,8 +702,8 @@ const handleTerritoryClick = (territory) => {
                     onClick={importTerritories}
                     disabled={!importData.trim()}
                     className={`w-full px-4 py-2 mt-2 text-white rounded-lg flex items-center justify-center gap-2 ${
-                      importData.trim() 
-                        ? 'bg-green-600 hover:bg-green-700' 
+                      importData.trim()
+                        ? 'bg-green-600 hover:bg-green-700'
                         : 'bg-gray-600 cursor-not-allowed'
                     }`}
                   >

@@ -8,7 +8,7 @@ import { useGetItineraryByIdQuery, useUpdateItineraryItemMutation } from "../../
 import toast from "react-hot-toast";
 
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAbYMI1QRvJhV1tRFRdMIGvPj2wP3p358Q";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const DEFAULT_CENTER = { lat: 31.5204, lng: 74.3587 };
 
 
@@ -30,7 +30,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
   // Persist dark mode preference
   useEffect(() => {
     localStorage.setItem("territoryDarkMode", JSON.stringify(darkMode));
-    
+
     // Update document class for potential global styling
     if (darkMode) {
       document.documentElement.classList.add("dark");
@@ -341,8 +341,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
       b.title = title;
       b.textContent = label;
       b.className = `p-2 rounded shadow-md hover:bg-opacity-80 w-9 h-9 flex items-center justify-center text-lg ${
-        isDark 
-          ? "bg-gray-700 text-gray-200 hover:bg-gray-600" 
+        isDark
+          ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
           : "bg-white text-gray-800 hover:bg-gray-100"
       }`;
       return b;
@@ -414,7 +414,7 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
   };
 
   const toggleFullscreen = () => setIsFullscreen((v) => !v);
-  
+
   const toggleDarkMode = () => setDarkMode(prev => !prev);
 
   const handleSave = async (e) => {
@@ -525,8 +525,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
       >
         {/* Header */}
         <div className={`flex justify-between items-center p-4 border-b rounded-t-xl ${
-          darkMode 
-            ? "bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700" 
+          darkMode
+            ? "bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700"
             : "bg-gradient-to-r from-blue-600 to-blue-700 border-blue-500 text-white"
         }`}>
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -545,24 +545,24 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                 <Loader2 size={12} className="animate-spin" /> fetching
               </span>
             )}
-            
+
             <button
               onClick={toggleDarkMode}
               className={`p-2 rounded transition-colors ${
-                darkMode 
-                  ? "text-yellow-300 hover:bg-gray-700" 
+                darkMode
+                  ? "text-yellow-300 hover:bg-gray-700"
                   : "text-blue-100 hover:bg-blue-500"
               }`}
               title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            
+
             <button
               onClick={toggleFullscreen}
               className={`p-2 rounded transition-colors ${
-                darkMode 
-                  ? "text-gray-300 hover:bg-gray-700" 
+                darkMode
+                  ? "text-gray-300 hover:bg-gray-700"
                   : "text-white hover:bg-blue-500"
               }`}
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
@@ -570,11 +570,11 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
 
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className={`p-2 rounded transition-colors ${
-                darkMode 
-                  ? "text-gray-300 hover:bg-gray-700" 
+                darkMode
+                  ? "text-gray-300 hover:bg-gray-700"
                   : "text-white hover:bg-blue-500"
               }`}
             >
@@ -611,8 +611,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className={`border px-3 py-2 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    darkMode 
-                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" 
+                    darkMode
+                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                       : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
                   }`}
                   placeholder="Enter territory name"
@@ -708,8 +708,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                           if (territoryShapeRef.current) territoryShapeRef.current.setRadius(newRadius * 1000);
                         }}
                         className={`border px-3 py-2 rounded-md w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          darkMode 
-                            ? "bg-gray-700 border-gray-600 text-white" 
+                          darkMode
+                            ? "bg-gray-700 border-gray-600 text-white"
                             : "bg-white border-gray-300 text-gray-900"
                         }`}
                       />
@@ -763,8 +763,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                     onClick={resetChanges}
                     disabled={!isEditing}
                     className={`flex-1 py-2 px-4 rounded-md flex items-center justify-center gap-1 ${
-                      !isEditing 
-                        ? "opacity-50 cursor-not-allowed" 
+                      !isEditing
+                        ? "opacity-50 cursor-not-allowed"
                         : darkMode
                           ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
                           : "bg-gray-200 text-gray-800 hover:bg-gray-300"
@@ -780,8 +780,8 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                   onClick={handleSave}
                   disabled={isSaving || !hasApiTerritory}
                   className={`w-full py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${
-                    darkMode 
-                      ? "bg-blue-700 text-white hover:bg-blue-600" 
+                    darkMode
+                      ? "bg-blue-700 text-white hover:bg-blue-600"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
                 >
@@ -798,29 +798,29 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
               <div className={`absolute right-4 bottom-4 flex flex-col gap-2 rounded-lg shadow-md p-2 border ${
                 darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
               }`}>
-                <button 
-                  onClick={zoomIn} 
+                <button
+                  onClick={zoomIn}
                   className={`p-2 rounded-md transition-colors ${
                     darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-100"
-                  }`} 
+                  }`}
                   title="Zoom in"
                 >
                   <ZoomIn size={18} />
                 </button>
-                <button 
-                  onClick={zoomOut} 
+                <button
+                  onClick={zoomOut}
                   className={`p-2 rounded-md transition-colors ${
                     darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-100"
-                  }`} 
+                  }`}
                   title="Zoom out"
                 >
                   <ZoomOut size={18} />
                 </button>
-                <button 
-                  onClick={centerMap} 
+                <button
+                  onClick={centerMap}
                   className={`p-2 rounded-md transition-colors ${
                     darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-800 hover:bg-gray-100"
-                  }`} 
+                  }`}
                   title="Recenter map"
                 >
                   <Navigation size={18} />
@@ -849,11 +849,11 @@ export default function TerritoryMapUpdate({ id, open, onClose }) {
                       ? "Drag the points to reshape the territory. Click on a line to add new points."
                       : "Drag the center to move or drag the edge to resize the circle."}
                   </p>
-                  <button 
-                    onClick={toggleEdit} 
+                  <button
+                    onClick={toggleEdit}
                     className={`mt-2 text-xs px-2 py-1 rounded ${
-                      darkMode 
-                        ? "bg-gray-700 hover:bg-gray-600 text-gray-200" 
+                      darkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
                         : "bg-blue-700 hover:bg-blue-800 text-white"
                     }`}
                   >
