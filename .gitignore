@@ -3,6 +3,5 @@ build/
 dist/
 
 # Environment variables - NEVER commit these
-.env
-.env.local
 .env.*.local
+config.bat

@@ -119,100 +119,114 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div
-        className={`bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-blue-500/20 p-8 w-full max-w-md transition-all duration-500 ease-out
+        className={`flex w-full max-w-4xl bg-white rounded-lg shadow-2xl overflow-hidden transition-all duration-500 ease-out
           ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
-        <div className="text-center mb-6">
-          <img
-            src={Logo}
-            alt="Southern Belle Logo"
-            className="mx-auto w-32 h-32 rounded-lg mb-4"
-          />
-          <h1 className="text-2xl font-bold text-blue-400">Welcome Back</h1>
-          <p className="text-slate-300 text-sm">Sign in to continue</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="email"
-              name="email"
-              value={loginFormData.email}
-              onChange={handleInputChange}
-              placeholder="Email address"
-              required
-              className="w-full pl-10 pr-3 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-300/20"
+        {/* left artwork panel (visible on large screens) */}
+        <div
+          className="hidden lg:block lg:w-2/5 bg-cover bg-center"
+          style={{ backgroundImage: `url(${Logo})` }}
+        />
+
+        {/* right form panel */}
+        <div className="w-full lg:w-3/5 p-8">
+          <div className="text-center mb-6">
+            <img
+              src={Logo}
+              alt="Southern Belle Logo"
+              className="mx-auto w-24 h-24 rounded-lg mb-4"
             />
+            <h1 className="text-3xl font-extrabold text-gray-800">
+              Welcome Back
+            </h1>
+            <p className="text-gray-600 text-sm">Sign in to continue</p>
           </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type={showPassword ? "text" : "password"}
-              name="password"
-              value={loginFormData.password}
-              onChange={handleInputChange}
-              placeholder="Password"
-              required
-              minLength={6}
-              className="w-full pl-10 pr-10 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-300/20"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((s) => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-            >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
-            </button>
-          </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 rounded-xl hover:from-blue-700 hover:to-cyan-700 disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {isLoading && (
-              <svg
-                className="animate-spin h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="email"
+                name="email"
+                value={loginFormData.email}
+                onChange={handleInputChange}
+                placeholder="Email address"
+                required
+                className="w-full pl-10 pr-3 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800 placeholder-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={loginFormData.password}
+                onChange={handleInputChange}
+                placeholder="Password"
+                required
+                minLength={6}
+                className="w-full pl-10 pr-10 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800 placeholder-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                ></path>
-              </svg>
-            )}
-            {isLoading ? "Signing in..." : "Login"}
-          </button>
-        </form>
-        <div className="text-center mt-4 text-slate-400 text-sm">
-          <Link
-            to="/forgot-password"
-            className="text-blue-400 hover:text-blue-300"
-          >
-            Forgot password?
-          </Link>
-        </div>
-        <div className="text-center mt-2 text-slate-400 text-sm">
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-blue-400 hover:text-blue-300">
-            Create one
-          </Link>
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {isLoading && (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  ></path>
+                </svg>
+              )}
+              {isLoading ? "Signing in..." : "Login"}
+            </button>
+          </form>
+          <div className="text-center mt-4 text-gray-600 text-sm">
+            <Link
+              to="/forgot-password"
+              className="text-indigo-600 hover:text-indigo-500"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <div className="text-center mt-2 text-gray-600 text-sm">
+            Don't have an account?{" "}
+            <Link
+              to="/signup"
+              className="text-indigo-600 hover:text-indigo-500"
+            >
+              Create one
+            </Link>
+          </div>
         </div>
       </div>
       <ToastContainer
